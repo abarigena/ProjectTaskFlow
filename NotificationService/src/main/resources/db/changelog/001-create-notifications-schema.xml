@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="1" author="danil.galanov">
+        <createTable tableName="notification_task_history">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="task_id" type="BIGINT"/>
+            <column name="action" type="VARCHAR(20)"/>
+            <column name="performed_by" type="BIGINT"/>
+            <column name="status" type="VARCHAR(50)"/>
+            <column name="timestamp" type="TIMESTAMP"/>
+            <column name="details" type="JSONB"/>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

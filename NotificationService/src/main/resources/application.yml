@@ -1,0 +1,84 @@
+spring:
+  application:
+    name: NotificationService
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/notification_service_db
+    username: postgres
+    password: postgres
+
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/notification_service_db
+    username: postgres
+    password: postgres
+    properties:
+      sslMode: DISABLE
+    pool:
+      enabled: true
+      initial-size: 2
+      max-size: 5
+      max-idle-time: 10m
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+
+  liquibase:
+    url: jdbc:postgresql://localhost:5432/notification_service_db
+    user: postgres
+    password: postgres
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    default-schema: public
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: rabbitmq
+    password: rabbitmq
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 1000ms
+          max-attempts: 3
+          max-interval: 10000ms
+          multiplier: 2.0
+        default-requeue-rejected: false
+        acknowledge-mode: manual
+        prefetch: 1
+
+server:
+  port: 8010
+
+queue:
+  name: task.History
+exchange:
+  name: task.Exchange
+routing:
+  key: routing.key
+
+taskflow:
+  exchange:
+    direct: taskflow.direct.exchange
+    fanout: taskflow.fanout.exchange
+    topic: taskflow.topic.exchange
+    headers: taskflow.headers.exchange
+    dlx: taskflow.dlx.exchange
+  queue:
+    notifications: task.notifications
+    audit: task.audit.fanout
+    notifications-topic: task.notifications.topic
+    error-topic: task.error.topic
+    notifications-headers: task.notifications.headers
+    dlx: task.dlx.notifications
+  routing:
+    notification: task.notification
+    notification-topic-delete: task.notification.deleted
+    notification-topic-update: task.notification.updated
+    error: task.error
+
+logging:
+  level:
+    liquibase: DEBUG

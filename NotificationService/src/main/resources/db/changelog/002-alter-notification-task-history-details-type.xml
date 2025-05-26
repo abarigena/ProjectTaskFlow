@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="2" author="danil.galanov">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="notification_task_history"/>
+            <columnExists tableName="notification_task_history" columnName="details"/>
+        </preConditions>
+
+        <comment>Changing details column type from JSONB to TEXT in notification_task_history table</comment>
+
+        <modifyDataType
+                tableName="notification_task_history"
+                columnName="details"
+                newDataType="TEXT"/>
+
+
+    </changeSet>
+
+</databaseChangeLog>
