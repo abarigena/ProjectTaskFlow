@@ -1,0 +1,81 @@
+spring:
+
+  application:
+    name: TaskFlow
+
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/taskflow_db
+    username: postgres
+    password: postgres
+    properties:
+      sslMode: DISABLE
+    pool:
+      enabled: true
+      initial-size: 2
+      max-size: 5
+      max-idle-time: 10m
+
+  flyway:
+    url: jdbc:postgresql://localhost:5432/taskflow_db
+    user: ${spring.r2dbc.username}
+    password: ${spring.r2dbc.password}
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+
+  data:
+    mongodb:
+      uri: mongodb://mongodb:mongodb@localhost:27017/taskflowdb?authSource=admin
+
+      gridfs:
+        database: taskflowdb
+        bucket: fs
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: rabbitmq
+    password: rabbitmq
+
+server:
+  port: 8000
+
+queue:
+  name: task.History
+exchange:
+  name: task.Exchange
+routing:
+  key: routing.key
+
+taskflow:
+  exchange:
+    direct: taskflow.direct.exchange
+    fanout: taskflow.fanout.exchange
+    topic: taskflow.topic.exchange
+    headers: taskflow.headers.exchange
+    dlx: taskflow.dlx.exchange
+  queue:
+    notifications: task.notifications
+    audit: task.audit.fanout
+    notifications-topic: task.notifications.topic
+    error-topic: task.error.topic
+    notifications-headers: task.notifications.headers
+    dlx: task.dlx.notifications
+  routing:
+    notification: task.notification
+    notification-topic-delete: task.notification.deleted
+    notification-topic-update: task.notification.updated
+    error: task.error
+
+logging:
+  level:
+    root: info
+    com.abarigena.taskflow: DEBUG
+    org.springframework.data.r2dbc: INFO
+    io.r2dbc.postgresql: INFO
+    io.r2dbc.pool: INFO
+    org.flywaydb: INFO

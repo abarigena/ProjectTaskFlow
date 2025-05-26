@@ -1,0 +1,1 @@
+ALTER TABLE projects RENAME COLUMN updated_ar TO updated_at;
