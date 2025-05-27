@@ -1,0 +1,19 @@
+app:
+  kafka:
+    topics:
+      taskflow-events: taskflow.events.test
+      taskflow-dlq: taskflow.dlq.test
+
+spring:
+  kafka:
+    consumer:
+      group-id: event-consumer-group-it
+      auto-offset-reset: earliest
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
+
+logging:
+  level:
+    com.abarigena.eventconsumerservice: DEBUG
+    org.springframework.kafka: DEBUG
+    root: INFO
