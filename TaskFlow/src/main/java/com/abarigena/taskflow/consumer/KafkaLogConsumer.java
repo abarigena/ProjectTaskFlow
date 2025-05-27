@@ -43,7 +43,7 @@ public class KafkaLogConsumer {
                 if (timestampStr != null) {
                     logEntry.setTimestamp(LocalDateTime.parse(timestampStr));
                 } else {
-                    logEntry.setTimestamp(LocalDateTime.now()); // Fallback
+                    logEntry.setTimestamp(LocalDateTime.now());
                 }
             } catch (DateTimeParseException e) {
                 log.error("Error parsing timestamp from Kafka message: {}. Using current time as fallback.", timestampStr, e);
@@ -54,14 +54,13 @@ public class KafkaLogConsumer {
                 if (levelStr != null) {
                     logEntry.setLevel(LogEntry.LogLevel.valueOf(levelStr.toUpperCase()));
                 } else {
-                    logEntry.setLevel(LogEntry.LogLevel.INFO); // Default level
+                    logEntry.setLevel(LogEntry.LogLevel.INFO);
                 }
             } catch (IllegalArgumentException e) {
                 log.error("Invalid log level string from Kafka: {}. Using INFO as fallback.", levelStr, e);
                 logEntry.setLevel(LogEntry.LogLevel.INFO);
             }
-            
-            // Save the LogEntry using LogEntryService
+
             logEntryService.saveLog(logEntry)
                 .subscribe(
                     savedEntry -> log.info("Successfully saved log to MongoDB with ID: {}", savedEntry.getId()),

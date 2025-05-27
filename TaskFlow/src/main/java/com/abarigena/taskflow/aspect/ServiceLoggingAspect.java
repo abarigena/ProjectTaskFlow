@@ -75,7 +75,6 @@ public class ServiceLoggingAspect {
                         logEntryService.logInfo(String.format("Успешное завершение метода %s.%s", className, methodName), successContext)
                                 .subscribeOn(Schedulers.boundedElastic())
                                 .subscribe();
-                        // Refactored Kafka Logging
                         handleKafkaLogging(successValue, className, methodName, args);
                     })
                     .doOnError(error -> {
@@ -101,14 +100,14 @@ public class ServiceLoggingAspect {
                 }
 
                 if (level == LogEntry.LogLevel.ERROR) {
-                    if (signalType != SignalType.ON_ERROR) { //This condition seems wrong, should log error if signalType is ON_ERROR
+                    if (signalType != SignalType.ON_ERROR) {
                         log.info(message, finalContext);
                         logEntryService.logInfo(message, finalContext)
                                 .subscribeOn(Schedulers.boundedElastic())
                                 .subscribe();
-                    } else { // Actual error case
-                         log.error(message, finalContext); // Assuming error logging for ON_ERROR
-                         logEntryService.logError(message, finalContext, new RuntimeException("Flux completed with error: " + signalType))
+                    } else {
+                         log.error(message, finalContext);
+                         logEntryService.logError(message, finalContext)
                                 .subscribeOn(Schedulers.boundedElastic())
                                 .subscribe();
                     }
@@ -121,7 +120,6 @@ public class ServiceLoggingAspect {
             });
         } else {
             log.warn("AOP Логирование: Метод {}.{} вернул не реактивный тип. Логирование завершения будет базовым.", className, methodName);
-            // Refactored Kafka Logging for non-reactive results
             handleKafkaLogging(result, className, methodName, args);
             return result;
         }
@@ -171,7 +169,7 @@ public class ServiceLoggingAspect {
                     }
                 }
                 break;
-            default: // UNKNOWN or other types
+            default:
                 return "";
         }
         return kafkaMessage;
@@ -245,7 +243,7 @@ public class ServiceLoggingAspect {
         OperationType operationType = getOperationType(methodName);
 
         if (operationType == OperationType.UNKNOWN) {
-            return; // Not a C/U/D operation we care about for Kafka
+            return;
         }
 
         String entityType = getEntityType(className);

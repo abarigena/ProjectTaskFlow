@@ -18,6 +18,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,8 +31,6 @@ public class KafkaLogConsumerTests {
     @Mock
     private LogEntryService logEntryService;
 
-    // Spy on ObjectMapper to allow normal operation but also verification if needed
-    // Or, we can just create a new one in the test as it's done in the consumer
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
@@ -43,11 +42,6 @@ public class KafkaLogConsumerTests {
 
     @BeforeEach
     void setUp() {
-        // objectMapper is already initialized in KafkaLogConsumer,
-        // but if we wanted to inject a mock/spy, this is where it would be configured.
-        // For this test, the actual objectMapper in KafkaLogConsumer is used.
-        // We can re-initialize kafkaLogConsumer if we need to inject a mocked objectMapper
-        // kafkaLogConsumer = new KafkaLogConsumer(logEntryService, objectMapper); // If we want to control object mapper
     }
 
     private String createKafkaMessage(String level, String message, Map<String, Object> context, String timestamp) throws JsonProcessingException {
@@ -133,10 +127,8 @@ public class KafkaLogConsumerTests {
     void testListenToLogTopic_MalformedJson() {
         String malformedKafkaMessage = "{\"level\":\"INFO\", \"message\":\"Test message\", \"context\":{}"; // Missing closing brace for timestamp
 
-        // We expect an error to be logged, but the listener should not throw an exception upwards
         assertDoesNotThrow(() -> kafkaLogConsumer.listenToLogTopic(malformedKafkaMessage));
 
-        // Verify that saveLog was NOT called
         verify(logEntryService, never()).saveLog(any(LogEntry.class));
     }
 
