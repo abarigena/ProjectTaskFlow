@@ -28,23 +28,23 @@ public class EventLogServiceImpl implements EventLogService {
         if (eventLog.getCreatedAt() == null) {
             eventLog.setCreatedAt(LocalDateTime.now());
         }
-        log.info("Saving EventLog: {}", eventLog);
+        log.info("Сохранение EventLog: {}", eventLog);
         return eventLogRepository.save(eventLog)
-                .doOnError(error -> log.error("Error saving EventLog: {}", error.getMessage(), error));
+                .doOnError(error -> log.error("Ошибка сохранения EventLog: {}", error.getMessage(), error));
     }
 
     @Override
     public Flux<EventLog> getAllEventLogs(Pageable pageable) {
-        log.debug("Fetching all event logs with pageable: {}", pageable);
+        log.debug("Получение всех EventLog с пагинацией: {}", pageable);
         return eventLogRepository.findAllBy(pageable)
-                .doOnError(error -> log.error("Error fetching all event logs: {}", error.getMessage(), error));
+                .doOnError(error -> log.error("Ошибка получения всех EventLog: {}", error.getMessage(), error));
     }
 
     @Override
     public Mono<EventLog> getEventLogById(String id) {
-        log.debug("Fetching event log by id: {}", id);
+        log.debug("Получение EventLog по ID: {}", id);
         return eventLogRepository.findById(id)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("EventLog", "id", id)))
-                .doOnError(error -> log.error("Error fetching event log by id {}: {}", id, error.getMessage(), error));
+                .doOnError(error -> log.error("Ошибка получения EventLog по ID {}: {}", id, error.getMessage(), error));
     }
 }

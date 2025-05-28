@@ -21,6 +21,11 @@ public class TaskHistoryController {
     private final TaskHistoryService taskHistoryService;
     private final TaskService taskService;
 
+    /**
+     * Получает историю изменений для указанной задачи.
+     * @param taskId идентификатор задачи
+     * @return поток истории задачи
+     */
     @GetMapping
     public Flux<TaskHistory> getHistory(@PathVariable Long taskId) {
         log.info("Getting history for task id {}", taskId);

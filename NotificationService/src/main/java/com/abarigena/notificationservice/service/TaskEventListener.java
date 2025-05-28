@@ -29,6 +29,13 @@ public class TaskEventListener {
             queues = "${taskflow.queue.notifications}",
             containerFactory = "rabbitListenerContainerFactory"
     )
+    /**
+     * Обрабатывает уведомления о создании задачи из очереди 'task.notifications'.
+     * Сохраняет информацию об уведомлении и подтверждает сообщение RabbitMQ.
+     * @param message DTO с историей задачи
+     * @param channel канал RabbitMQ
+     * @param deliveryTag тег доставки сообщения RabbitMQ
+     */
     public void handleTaskCreateNotification(
             @Payload TaskHistoryDto message,
             Channel channel,
@@ -44,6 +51,13 @@ public class TaskEventListener {
             queues = "${taskflow.queue.audit}",
             containerFactory = "rabbitListenerContainerFactory"
     )
+    /**
+     * Обрабатывает уведомления об обновлении задачи из очереди 'task.audit.fanout'.
+     * Сохраняет информацию об уведомлении и подтверждает сообщение RabbitMQ.
+     * @param message DTO с историей задачи
+     * @param channel канал RabbitMQ
+     * @param deliveryTag тег доставки сообщения RabbitMQ
+     */
     public void handleTaskUpdateNotification(
             @Payload TaskHistoryDto message,
             Channel channel,
@@ -58,6 +72,13 @@ public class TaskEventListener {
             queues = "${taskflow.queue.notifications-topic}",
             containerFactory = "rabbitListenerContainerFactory"
     )
+    /**
+     * Обрабатывает уведомления об удалении задачи из очереди 'task.notifications.topic'.
+     * Сохраняет информацию об уведомлении и подтверждает сообщение RabbitMQ.
+     * @param message DTO с историей задачи
+     * @param channel канал RabbitMQ
+     * @param deliveryTag тег доставки сообщения RabbitMQ
+     */
     public void handleTaskDeleteNotification(
             @Payload TaskHistoryDto message,
             Channel channel,
@@ -72,29 +93,29 @@ public class TaskEventListener {
                                 long deliveryTag, String queueName){
 
         if (message.getTaskId() == null || message.getAction() == null) {
-            log.error("!!! Invalid message received from queue [{}]: taskId or action is null. Throwing exception.", queueName);
+            log.error("!!! Некорректное сообщение из очереди [{}]: taskId или action равно null. Сообщение будет отклонено.", queueName);
             rejectMessage(channel, deliveryTag, queueName, false);
             return;
         }
 
         NotificationTaskHistory entityToSave = mapDtoToEntity(message);
-        log.debug("Mapped DTO to entity: {}", entityToSave);
+        log.debug("DTO {} смаплено на сущность: {}", message, entityToSave);
 
-        log.debug("Attempting to save entity for deliveryTag [{}]...", deliveryTag);
+        log.debug("Попытка сохранения сущности для deliveryTag [{}]...", deliveryTag);
 
         repository.save(entityToSave)
                 .doOnSuccess(savedEntity -> {
-                    log.info(">>> Successfully saved notification with ID: {} for deliveryTag [{}]", savedEntity.getId(), deliveryTag);
+                    log.info(">>> Уведомление ID: {} успешно сохранено для deliveryTag [{}]", savedEntity.getId(), deliveryTag);
                     acknowledgeMessage(channel, deliveryTag, queueName);
                 })
                 .doOnError(error -> {
-                    log.error("!!! Failed to save notification to DB for deliveryTag [{}]: {}", deliveryTag, error.getMessage(), error);
+                    log.error("!!! Ошибка сохранения уведомления в БД для deliveryTag [{}]: {}", deliveryTag, error.getMessage(), error);
                     rejectMessage(channel, deliveryTag, queueName, false);
                 })
                 .subscribe(
                         savedEntity -> {},
                         error -> {
-                            log.debug("Error from reactive chain for deliveryTag [{}]: {}", deliveryTag, error.getMessage());
+                            log.debug("Ошибка из реактивной цепочки для deliveryTag [{}]: {}", deliveryTag, error.getMessage());
                         }
                 );
     }
@@ -103,13 +124,21 @@ public class TaskEventListener {
             queues = "${taskflow.queue.dlx}",
             containerFactory = "rabbitListenerContainerFactory"
     )
+    /**
+     * Обрабатывает сообщения, попавшие в очередь недоставленных сообщений (DLQ) 'task.dlx.notifications'.
+     * Логирует информацию о недоставленном сообщении.
+     * @param failedMessage недоставленное сообщение RabbitMQ
+     * @param channel канал RabbitMQ
+     * @param deliveryTag тег доставки сообщения RabbitMQ
+     * @throws IOException если возникает ошибка при обработке канала
+     */
     public void handleDeadLetter(
             Message failedMessage,
             Channel channel,
             @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag
     ) throws IOException{
         String dlqName = "task.dlx.notifications";
-        log.error("<<< Received message in DLQ [{}], deliveryTag [{}].", dlqName, deliveryTag);
+        log.error("<<< Получено сообщение в DLQ [{}], deliveryTag [{}].", dlqName, deliveryTag);
 
         Map<String, Object> headers = failedMessage.getMessageProperties().getHeaders();
         Object originalExchange = headers.get("x-original-exchange");
@@ -127,7 +156,7 @@ public class TaskEventListener {
         log.error("    Death Count: {}", deathCount);
 
         String body = new String(failedMessage.getBody());
-        log.error("   Message body: {}", body);
+        log.error("    Тело сообщения: {}", body);
 
         /*log.warn("--- Ack'ing (removing) message from DLQ [{}] ---", dlqName);
         channel.basicAck(deliveryTag, false);*/
@@ -171,7 +200,7 @@ public class TaskEventListener {
         try {
             return objectMapper.writeValueAsString(map);
         }catch (JsonProcessingException e){
-            throw new RuntimeException("Error serializing task details", e);
+            throw new RuntimeException("Ошибка сериализации деталей задачи в JSON", e);
         }
     }
 }

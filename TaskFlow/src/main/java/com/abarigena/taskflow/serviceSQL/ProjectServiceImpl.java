@@ -103,8 +103,8 @@ public class ProjectServiceImpl implements ProjectService {
                     return projectRepository.save(project);
                 })
                 .map(projectMapper::toDto)
-                .doOnSuccess(createdProject -> log.info("Created project with id: {}", createdProject.getId()))
-                .doOnError(error -> log.error("Error creating project", error));
+                .doOnSuccess(createdProject -> log.info("Создан проект с ID: {}", createdProject.getId()))
+                .doOnError(error -> log.error("Ошибка при создании проекта", error));
     }
 
     /**

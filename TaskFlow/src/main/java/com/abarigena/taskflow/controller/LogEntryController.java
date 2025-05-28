@@ -18,6 +18,13 @@ public class LogEntryController {
 
     private final LogEntryService logEntryService;
 
+    /**
+     * Получает все записи журнала с использованием пагинации и сортировки.
+     * @param page номер страницы
+     * @param size количество элементов на странице
+     * @param sort параметры сортировки (например, "createdAt,desc")
+     * @return поток записей журнала
+     */
     @GetMapping
     public Flux<LogEntry> getAllLogs(
                                      @RequestParam(value = "page", defaultValue = "0") int page,
@@ -34,6 +41,14 @@ public class LogEntryController {
         return logEntryService.getAllLogs(pageable);
     }
 
+    /**
+     * Получает записи журнала по указанному уровню логирования с использованием пагинации и сортировки.
+     * @param level уровень логирования
+     * @param page номер страницы
+     * @param size количество элементов на странице
+     * @param sort параметры сортировки (например, "createdAt,desc")
+     * @return поток записей журнала
+     */
     @GetMapping("/level")
     public Flux<LogEntry> getLogsByLevel(@RequestParam(value = "level") LogEntry.LogLevel level,
                                          @RequestParam(value = "page", defaultValue = "0") int page,

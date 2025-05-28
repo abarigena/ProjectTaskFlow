@@ -20,12 +20,20 @@ import reactor.core.publisher.Mono;
 public class CommentController {
     private final CommentService commentService;
 
+    /**
+     * Находит все комментарии для указанной задачи с использованием пагинации и сортировки.
+     * @param taskId идентификатор задачи
+     * @param page номер страницы
+     * @param size количество элементов на странице
+     * @param sort параметры сортировки (например, "createdAt,desc")
+     * @return поток DTO комментариев
+     */
     @GetMapping("/{taskId}/comments")
     public Flux<CommentDto> findAllByTaskId(@PathVariable Long taskId,
                                             @RequestParam(value = "page", defaultValue = "0") int page,
                                             @RequestParam(value = "size", defaultValue = "10") int size,
                                             @RequestParam(value = "sort", defaultValue = "createdAt,desc") String sort) {
-        log.info("findAllByProjectId {}", taskId);
+        log.info("Запрос на получение всех комментариев для задачи ID: {}", taskId);
 
         String[] sortParams = sort.split(",");
         Sort.Direction direction = sortParams.length > 1 && sortParams[1].equalsIgnoreCase("asc") ?
@@ -37,24 +45,40 @@ public class CommentController {
         return commentService.findAllByTaskId(taskId, pageable);
     }
 
+    /**
+     * Создает новый комментарий.
+     * @param commentDto DTO комментария
+     * @return моно DTO созданного комментария
+     */
     @PostMapping("/comment")
     public Mono<CommentDto> createComment(@Valid @RequestBody CommentDto commentDto) {
-        log.info("createComment {}", commentDto);
+        log.info("Запрос на создание комментария: {}", commentDto);
 
         return commentService.createComment(commentDto);
     }
 
+    /**
+     * Обновляет существующий комментарий.
+     * @param id идентификатор комментария
+     * @param commentDto DTO комментария с обновленными данными
+     * @return моно DTO обновленного комментария
+     */
     @PutMapping("/{id}/comment")
     public Mono<CommentDto> updateComment(@PathVariable Long id, @Valid @RequestBody CommentDto commentDto) {
-        log.info("updateComment {}", commentDto);
+        log.info("Запрос на обновление комментария ID {}: {}", id, commentDto);
 
         return commentService.updateComment(id, commentDto);
     }
 
+    /**
+     * Удаляет комментарий по его идентификатору.
+     * @param id идентификатор комментария
+     * @return моно без содержимого
+     */
     @DeleteMapping("/{id}/comment")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public Mono<Void> deleteComment(@PathVariable Long id) {
-        log.info("deleteComment {}", id);
+        log.info("Запрос на удаление комментария ID: {}", id);
 
         return commentService.deleteComment(id);
     }

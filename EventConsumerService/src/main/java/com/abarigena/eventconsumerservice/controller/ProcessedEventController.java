@@ -14,11 +14,19 @@ import reactor.core.publisher.Flux;
 public class ProcessedEventController {
     private final KafkaEventConsumer kafkaEventConsumer;
 
+    /**
+     * Предоставляет эндпоинт для получения списка успешно обработанных доменных событий.
+     * @return {@link Flux} с потоком обработанных {@link DomainEvent}.
+     */
     @GetMapping("/processed-events")
     public Flux<DomainEvent> getProcessedEvents() {
         return Flux.fromIterable(kafkaEventConsumer.getProcessedEvents());
     }
 
+    /**
+     * Предоставляет эндпоинт для получения списка доменных событий, которые не удалось обработать и были отправлены в DLQ.
+     * @return {@link Flux} с потоком событий из DLQ.
+     */
     @GetMapping("/errors")
     public Flux<DomainEvent> getErrorEvents() {
         return Flux.fromIterable(kafkaEventConsumer.getDlqEvents());

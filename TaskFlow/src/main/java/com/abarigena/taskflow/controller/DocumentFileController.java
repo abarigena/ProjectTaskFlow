@@ -40,6 +40,12 @@ public class DocumentFileController {
         return ALLOWED_MEDIA_TYPES.stream().anyMatch(allowed -> allowed.includes(mediaType));
     }
 
+    /**
+     * Загружает документ для указанной задачи.
+     * @param taskId идентификатор задачи
+     * @param filePartMono моно с файлом для загрузки
+     * @return моно с метаданными загруженного файла
+     */
     @PostMapping(value = "/tasks/{taskId}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<DocumentFile> uploadDocument(
@@ -68,6 +74,11 @@ public class DocumentFileController {
                         error -> log.error("Непредвиденная ошибка при загрузке файла для задачи {}: {}", taskId, error.getMessage(), error));
     }
 
+    /**
+     * Получает список документов для указанной задачи.
+     * @param taskId идентификатор задачи
+     * @return поток метаданных документов
+     */
     @GetMapping("/tasks/{taskId}/documents")
     public Flux<DocumentFile> getDocumentsForTask(@PathVariable Long taskId) {
         log.info("Запрос списка документов для задачи ID: {}", taskId);
@@ -75,6 +86,11 @@ public class DocumentFileController {
         return documentFileService.getDocumentsByTaskId(taskId);
     }
 
+    /**
+     * Скачивает документ по его идентификатору.
+     * @param id идентификатор документа
+     * @return моно с ResponseEntity, содержащим поток данных файла
+     */
     @GetMapping("/documents/{id}/download")
     public Mono<ResponseEntity<Flux<DataBuffer>>> downloadDocument(@PathVariable String id) {
         log.info("Запрос на скачивание документа по ID метаданных: {}", id);
@@ -130,6 +146,11 @@ public class DocumentFileController {
                 }));
     }
 
+    /**
+     * Получает метаданные документа по его идентификатору.
+     * @param id идентификатор документа
+     * @return моно с ResponseEntity, содержащим метаданные документа
+     */
     @GetMapping("/documents/{id}")
     public Mono<ResponseEntity<DocumentFile>> getDocumentMetadata(@PathVariable String id) {
         log.info("Запрос метаданных документа по ID: {}", id);
@@ -144,6 +165,11 @@ public class DocumentFileController {
                 .map(ResponseEntity::ok);
     }
 
+    /**
+     * Удаляет документ по его идентификатору.
+     * @param id идентификатор документа
+     * @return моно без содержимого
+     */
     @DeleteMapping("/documents/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public Mono<Void> deleteDocument(@PathVariable String id) {

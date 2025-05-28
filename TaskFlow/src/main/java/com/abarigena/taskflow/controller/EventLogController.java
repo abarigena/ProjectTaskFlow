@@ -18,6 +18,13 @@ import reactor.core.publisher.Mono;
 public class EventLogController {
     private final EventLogService eventLogService;
 
+    /**
+     * Получает все журналы событий с использованием пагинации и сортировки.
+     * @param page номер страницы
+     * @param size количество элементов на странице
+     * @param sort параметры сортировки (например, "createdAt,desc")
+     * @return поток журналов событий
+     */
     @GetMapping
     public Flux<EventLog> getAllEventLogs(
             @RequestParam(value = "page", defaultValue = "0") int page,
@@ -34,6 +41,11 @@ public class EventLogController {
         return eventLogService.getAllEventLogs(pageable);
     }
 
+    /**
+     * Получает журнал событий по его идентификатору.
+     * @param id идентификатор журнала событий
+     * @return моно журнала событий
+     */
     @GetMapping("/{id}")
     public Mono<EventLog> getEventLogById(@PathVariable String id) {
         log.info("Received request to get event log by id: {}", id);

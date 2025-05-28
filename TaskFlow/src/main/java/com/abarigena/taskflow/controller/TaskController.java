@@ -22,6 +22,13 @@ import reactor.core.publisher.Mono;
 public class TaskController {
     private final TaskService taskService;
 
+    /**
+     * Получает все задачи с использованием пагинации и сортировки.
+     * @param page номер страницы
+     * @param size количество элементов на странице
+     * @param sort параметры сортировки (например, "createdAt,desc")
+     * @return поток DTO задач
+     */
     @GetMapping
     public Flux<TaskDto> getAllTasks(
             @RequestParam(value = "page", defaultValue = "0") int page,
@@ -40,6 +47,11 @@ public class TaskController {
         return taskService.getAllTasks(pageable);
     }
 
+    /**
+     * Получает задачу по ее идентификатору.
+     * @param id идентификатор задачи
+     * @return моно с ResponseEntity, содержащим DTO задачи
+     */
     @GetMapping("/{id}")
     public Mono<ResponseEntity<TaskDto>> getTaskById(@PathVariable Long id) {
         log.info("Request received for getting task with id: {}", id);
@@ -47,6 +59,11 @@ public class TaskController {
                 .map(ResponseEntity::ok);
     }
 
+    /**
+     * Создает новую задачу.
+     * @param taskDto DTO задачи
+     * @return моно с ResponseEntity, содержащим DTO созданной задачи
+     */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<ResponseEntity<TaskDto>> createTask(@Valid @RequestBody TaskDto taskDto) {
@@ -55,6 +72,12 @@ public class TaskController {
                 .map(ResponseEntity::ok);
     }
 
+    /**
+     * Обновляет существующую задачу.
+     * @param id идентификатор задачи
+     * @param taskDto DTO задачи с обновленными данными
+     * @return моно с ResponseEntity, содержащим DTO обновленной задачи
+     */
     @PutMapping("/{id}")
     public Mono<ResponseEntity<TaskDto>> updateTask(@PathVariable Long id, @Valid @RequestBody TaskDto taskDto) {
         log.info("Request received for updating task with id: {}", id);
@@ -63,6 +86,11 @@ public class TaskController {
                 .map(ResponseEntity::ok);
     }
 
+    /**
+     * Удаляет задачу по ее идентификатору.
+     * @param id идентификатор задачи
+     * @return моно без содержимого
+     */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public Mono<Void> deleteTask(@PathVariable Long id) {
@@ -70,6 +98,14 @@ public class TaskController {
         return taskService.deleteTask(id);
     }
 
+    /**
+     * Находит задачи, назначенные указанному пользователю, с использованием пагинации и сортировки.
+     * @param userId идентификатор пользователя
+     * @param page номер страницы
+     * @param size количество элементов на странице
+     * @param sort параметры сортировки (например, "createdAt,desc")
+     * @return поток DTO задач
+     */
     @GetMapping("/assigned/{userId}")
     public Flux<TaskDto> findByAssignedUserId(@PathVariable Long userId,
                                               @RequestParam(value = "page", defaultValue = "0") int page,
@@ -87,6 +123,14 @@ public class TaskController {
         return taskService.findByAssignedUserId(userId, pageable);
     }
 
+    /**
+     * Получает задачи для указанного проекта с использованием пагинации и сортировки.
+     * @param projectId идентификатор проекта
+     * @param page номер страницы
+     * @param size количество элементов на странице
+     * @param sort параметры сортировки (например, "createdAt,desc")
+     * @return поток DTO задач
+     */
     @GetMapping("/project/{projectId}")
     public Flux<TaskDto> getTasksByProjectId(@PathVariable Long projectId,
                                              @RequestParam(value = "page", defaultValue = "0") int page,
@@ -104,6 +148,15 @@ public class TaskController {
         return taskService.getTasksByProjectId(projectId, pageable);
     }
 
+    /**
+     * Получает задачи по статусу и приоритету с использованием пагинации и сортировки.
+     * @param status статус задачи
+     * @param priority приоритет задачи
+     * @param page номер страницы
+     * @param size количество элементов на странице
+     * @param sort параметры сортировки (например, "createdAt,desc")
+     * @return поток DTO задач
+     */
     @GetMapping("/find/filter")
     public Flux<TaskDto> getTasksByStatusAndPriority(@RequestParam Task.Status status,
                                                      @RequestParam Task.Priority priority,

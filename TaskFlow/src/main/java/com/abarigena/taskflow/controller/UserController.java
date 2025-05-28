@@ -20,6 +20,13 @@ import reactor.core.publisher.Mono;
 public class UserController {
     private final UserService userService;
 
+    /**
+     * Находит всех пользователей с использованием пагинации и сортировки.
+     * @param page номер страницы
+     * @param size количество элементов на странице
+     * @param sort параметры сортировки (например, "createdAt,desc")
+     * @return поток DTO пользователей
+     */
     @GetMapping
     Flux<UserDto> findAllUsers(
             @RequestParam(value = "page", defaultValue = "0") int page,
@@ -38,6 +45,11 @@ public class UserController {
         return userService.findAllUsers(pageable);
     }
 
+    /**
+     * Получает пользователя по его адресу электронной почты.
+     * @param email адрес электронной почты пользователя
+     * @return моно DTO пользователя
+     */
     @GetMapping("/email")
     Mono<UserDto> getUserByEmail(@RequestParam(value = "email") String email) {
         log.info("Request received for getting user by email: {}", email);
@@ -45,12 +57,22 @@ public class UserController {
         return userService.findByEmail(email);
     }
 
+    /**
+     * Создает нового пользователя.
+     * @param userDto DTO пользователя
+     * @return моно DTO созданного пользователя
+     */
     @PostMapping
     Mono<UserDto> createUser(@Valid @RequestBody UserDto userDto) {
         log.info("Request received for creating user: {}", userDto);
         return userService.createUser(userDto);
     }
 
+    /**
+     * Находит пользователя по его идентификатору.
+     * @param id идентификатор пользователя
+     * @return моно DTO пользователя
+     */
     @GetMapping("/{id}")
     Mono<UserDto> findUserById(@PathVariable Long id) {
         log.info("Request received for getting user by id: {}", id);
@@ -58,6 +80,12 @@ public class UserController {
         return userService.findUserById(id);
     }
 
+    /**
+     * Обновляет существующего пользователя.
+     * @param id идентификатор пользователя
+     * @param userDto DTO пользователя с обновленными данными
+     * @return моно DTO обновленного пользователя
+     */
     @PutMapping("/{id}")
     Mono<UserDto> updateUser(@PathVariable Long id, @Valid @RequestBody UserDto userDto) {
         log.info("Request received for updating user: {}", userDto);
@@ -65,6 +93,11 @@ public class UserController {
         return userService.updateUser(id, userDto);
     }
 
+    /**
+     * Удаляет пользователя по его идентификатору.
+     * @param id идентификатор пользователя
+     * @return моно без содержимого
+     */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     Mono<Void> deleteUserById(@PathVariable Long id) {

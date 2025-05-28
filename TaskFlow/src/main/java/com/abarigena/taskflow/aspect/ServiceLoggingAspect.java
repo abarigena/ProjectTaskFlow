@@ -69,7 +69,7 @@ public class ServiceLoggingAspect {
             context.put("args", "Не удалось преобразовать");
         }
 
-        log.info(">>> Начинаем выполнение метода: {}.{}", className, methodName);
+        log.info(">>> Начало выполнения: {}.{}", className, methodName);
         logEntryService.logInfo(String.format("Начало выполнения метода %s.%s", className, methodName), context)
                 .subscribeOn(Schedulers.boundedElastic())
                 .subscribe();
@@ -80,7 +80,7 @@ public class ServiceLoggingAspect {
             return monoResult
                     .doOnSuccess(successValue -> {
                         Map<String, Object> successContext = new HashMap<>(context);
-                        log.info(">>> Успешное завершение метода: {}.{} \n {}", className, methodName, successContext);
+                        log.info(">>> Успешное завершение: {}.{}", className, methodName);
                         logEntryService.logInfo(String.format("Успешное завершение метода %s.%s", className, methodName), successContext)
                                 .subscribeOn(Schedulers.boundedElastic())
                                 .subscribe();
@@ -96,7 +96,7 @@ public class ServiceLoggingAspect {
                         Map<String, Object> errorContext = new HashMap<>(context);
                         errorContext.put("error", error.getMessage());
                         errorContext.put("errorType", error.getClass().getName());
-                        log.error(">>> Ошибка выполнения метода {}.{} : {}", className, methodName, error.getMessage());
+                        log.error(">>> Ошибка выполнения: {}.{}: {}", className, methodName, error.getMessage());
                         logEntryService.logError(String.format("Ошибка выполнения метода %s.%s: %s", className, methodName, error.getMessage()),
                                         errorContext)
                                 .subscribeOn(Schedulers.boundedElastic())
@@ -116,18 +116,18 @@ public class ServiceLoggingAspect {
 
                 if (level == LogEntry.LogLevel.ERROR) {
                     if (signalType != SignalType.ON_ERROR) {
-                        log.info(message, finalContext);
+                        log.info(message);
                         logEntryService.logInfo(message, finalContext)
                                 .subscribeOn(Schedulers.boundedElastic())
                                 .subscribe();
                     } else {
-                         log.error(message, finalContext);
+                         log.error(message);
                          logEntryService.logError(message, finalContext)
                                 .subscribeOn(Schedulers.boundedElastic())
                                 .subscribe();
                     }
                 } else {
-                    log.info(message, finalContext);
+                    log.info(message);
                     logEntryService.logInfo(message, finalContext)
                             .subscribeOn(Schedulers.boundedElastic())
                             .subscribe();
@@ -175,18 +175,18 @@ public class ServiceLoggingAspect {
                     kafkaContext.put("taskId", task.getId());
                     if (task.getTitle() != null) kafkaContext.put("title", task.getTitle());
                     if (task.getStatus() != null) kafkaContext.put("status", task.getStatus().toString());
-                    kafkaMessage = operationType == OperationType.CREATE ? "Task created" : "Task updated";
+                    kafkaMessage = operationType == OperationType.CREATE ? "Задача создана" : "Задача обновлена";
                 }
                 break;
             case DELETE:
                 if (args.length > 0) {
                     if (args[0] instanceof Long) {
                         kafkaContext.put("taskId", args[0]);
-                        kafkaMessage = "Task deleted";
+                        kafkaMessage = "Задача удалена";
                     } else if (args[0] instanceof Task) {
                         Task task = (Task) args[0];
                         kafkaContext.put("taskId", task.getId());
-                        kafkaMessage = "Task deleted";
+                        kafkaMessage = "Задача удалена";
                     }
                 }
                 break;
@@ -206,18 +206,18 @@ public class ServiceLoggingAspect {
                     kafkaContext.put("projectId", project.getId());
                     if (project.getName() != null) kafkaContext.put("name", project.getName());
                     if (project.getStatus() != null) kafkaContext.put("status", project.getStatus().toString());
-                    kafkaMessage = operationType == OperationType.CREATE ? "Project created" : "Project updated";
+                    kafkaMessage = operationType == OperationType.CREATE ? "Проект создан" : "Проект обновлен";
                 }
                 break;
             case DELETE:
                 if (args.length > 0) {
                     if (args[0] instanceof Long) {
                         kafkaContext.put("projectId", args[0]);
-                        kafkaMessage = "Project deleted";
+                        kafkaMessage = "Проект удален";
                     } else if (args[0] instanceof Project) {
                         Project project = (Project) args[0];
                         kafkaContext.put("projectId", project.getId());
-                        kafkaMessage = "Project deleted";
+                        kafkaMessage = "Проект удален";
                     }
                 }
                 break;
@@ -237,18 +237,18 @@ public class ServiceLoggingAspect {
                     kafkaContext.put("commentId", comment.getId());
                     kafkaContext.put("taskId", comment.getTaskId());
                     kafkaContext.put("userId", comment.getUserId());
-                    kafkaMessage = operationType == OperationType.CREATE ? "Comment created" : "Comment updated";
+                    kafkaMessage = operationType == OperationType.CREATE ? "Комментарий создан" : "Комментарий обновлен";
                 }
                 break;
             case DELETE:
                 if (args.length > 0) {
                     if (args[0] instanceof Long) {
                         kafkaContext.put("commentId", args[0]);
-                        kafkaMessage = "Comment deleted";
+                        kafkaMessage = "Комментарий удален";
                     } else if (args[0] instanceof Comment) {
                         Comment comment = (Comment) args[0];
                         kafkaContext.put("commentId", comment.getId());
-                        kafkaMessage = "Comment deleted";
+                        kafkaMessage = "Комментарий удален";
                     }
                 }
                 break;
@@ -280,14 +280,14 @@ public class ServiceLoggingAspect {
                 kafkaMessage = populateCommentContext(kafkaContext, dataObject, args, operationType);
                 break;
             default:
-                log.debug("Kafka logging not configured for entity type derived from class: {}", className);
+                log.debug("Kafka-логирование не настроено для типа сущности из класса: {}", className);
                 return; 
         }
 
         if (kafkaMessage != null && !kafkaMessage.isEmpty()) {
             kafkaLogProducerService.sendLog("INFO", kafkaMessage, kafkaContext);
         } else {
-            log.debug("No Kafka message generated for method {} in class {}. Operation type: {}, Entity type: {}", methodName, className, operationType, entityType);
+            log.debug("Kafka-сообщение не было сгенерировано для метода {} в классе {}. Тип операции: {}, Тип сущности: {}", methodName, className, operationType, entityType);
         }
     }
 
@@ -309,14 +309,14 @@ public class ServiceLoggingAspect {
             case CREATE:
             case UPDATE:
                 if (methodResult == null) {
-                    log.warn("Результат метода для {} {} равен null. Невозможно извлечь ID или payload.", entityType, operationType);
+                    log.warn("Результат метода для {} {} равен null. ID/payload не извлечены.", entityType, operationType);
                     return;
                 }
                 try {
                     Object idValue = methodResult.getClass().getMethod("getId").invoke(methodResult);
                     entityIdString = String.valueOf(idValue);
                 } catch (Exception e) {
-                    log.error("Не удалось извлечь ID из methodResult для события {}. Тип результата: {}. Ошибка: {}",
+                    log.error("Ошибка извлечения ID из результата метода для события {}. Тип результата: {}. Ошибка: {}",
                             eventTypeString, methodResult.getClass().getName(), e.getMessage());
                     return;
                 }
@@ -328,14 +328,14 @@ public class ServiceLoggingAspect {
                         eventPayload = Map.of("id", entityIdString, "status", "DELETED");
                     }
                 } else {
-                    log.warn("Не удалось извлечь ID для операции DELETE события {}. Аргументы метода: {}",
+                    log.warn("Ошибка извлечения ID для DELETE события {}. Аргументы: {}",
                             eventTypeString, Arrays.toString(methodArgs));
                     return;
                 }
                 break;
             case UNKNOWN:
             default:
-                log.debug("Операция {} не требует публикации доменного события для сущности {}.", operationType, entityType);
+                log.debug("Операция {} не требует публикации доменного события для {}.", operationType, entityType);
                 return;
         }
 
@@ -371,17 +371,17 @@ public class ServiceLoggingAspect {
         final String finalEntityIdString = entityIdString;
         eventLogRepository.save(eventLog)
                 .doOnSuccess(savedLog -> {
-                    log.info("Лог события {} для сущности {} (ID: {}) успешно сохранен с ID: {}",
+                    log.info("Лог события {} для {} (ID: {}) сохранен с ID: {}",
                             savedLog.getEventType(), savedLog.getEntityType(), savedLog.getEntityId(), savedLog.getId());
                     domainEventProducerService.sendDomainEvent(domainEvent);
-                    log.info("Доменное событие {} для сущности {} (ID: {}) отправлено в Kafka.",
+                    log.info("Доменное событие {} для {} (ID: {}) отправлено в Kafka.",
                             domainEvent.getEventType(), domainEvent.getEntityType(), domainEvent.getEntityId());
                 })
                 .doOnError(error -> log.error("Ошибка при сохранении EventLog для события {}_{} ID {}: {}",
                         entityType, operationType, finalEntityIdString, error.getMessage(), error))
                 .subscribe();
 
-        log.debug("Запланирована асинхронная отправка доменного события {} и сохранение лога для сущности {} (ID: {}).",
+        log.debug("Запланирована отправка события {} и сохранение лога для {} (ID: {}).",
                 eventTypeString, entityType, entityIdString);
     }
 }

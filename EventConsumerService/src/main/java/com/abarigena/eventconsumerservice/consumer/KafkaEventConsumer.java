@@ -32,6 +32,16 @@ public class KafkaEventConsumer {
     private final List<DomainEvent> processedEvents = new CopyOnWriteArrayList<>();
     private final List<DomainEvent> dlqEvents = new CopyOnWriteArrayList<>();
 
+    /**
+     * Прослушивает Kafka топик {@code taskflow.events}, обрабатывает входящие доменные события.
+     * В случае ошибки при обработке, отправляет событие в Dead Letter Queue (DLQ).
+     *
+     * @param event полученное доменное событие
+     * @param topic топик Kafka, из которого получено событие
+     * @param partition раздел Kafka, из которого получено событие
+     * @param offset смещение сообщения в разделе Kafka
+     * @param acknowledgment объект для подтверждения обработки сообщения
+     */
     @KafkaListener(topics = TASKFLOW_EVENTS_TOPIC)
     public void listenToTaskflowEvents(
             @Payload DomainEvent event,
@@ -93,14 +103,33 @@ public class KafkaEventConsumer {
         }
     }
 
+    /**
+     * Возвращает неизменяемый список успешно обработанных доменных событий.
+     * Предназначен для использования в контроллерах или для тестирования.
+     * @return список обработанных событий
+     */
     public List<DomainEvent> getProcessedEvents() {
         return Collections.unmodifiableList(processedEvents);
     }
 
+    /**
+     * Возвращает неизменяемый список доменных событий, которые не удалось обработать и которые были отправлены в DLQ.
+     * Предназначен для использования в контроллерах или для тестирования.
+     * @return список событий из DLQ
+     */
     public List<DomainEvent> getDlqEvents() {
         return Collections.unmodifiableList(dlqEvents);
     }
 
+    /**
+     * Очищает список успешно обработанных событий.
+     * Используется в основном для тестовых целей или сброса состояния.
+     */
     public void clearProcessedEvents() { this.processedEvents.clear(); }
+
+    /**
+     * Очищает список событий, отправленных в DLQ.
+     * Используется в основном для тестовых целей или сброса состояния.
+     */
     public void clearDlqEvents() { this.dlqEvents.clear(); }
 }

@@ -34,16 +34,28 @@ public class RabbitConfiguration {
     @Value("${spring.rabbitmq.port}")
     private int port;
 
+    /**
+     * Определяет обменник для недоставленных сообщений (DLX).
+     * @return объект DirectExchange для DLX
+     */
     @Bean
     public DirectExchange deadLetterExchange() {
         return new DirectExchange("taskflow.dlx.exchange");
     }
 
+    /**
+     * Определяет очередь для недоставленных сообщений (DLQ).
+     * @return объект Queue для DLQ
+     */
     @Bean
     public Queue deadLetterQueue() {
         return QueueBuilder.durable("task.dlx.notifications").build();
     }
 
+    /**
+     * Связывает очередь DLQ с обменником DLX.
+     * @return объект Binding для DLQ и DLX
+     */
     @Bean
     public Binding dlxBinding() {
         return BindingBuilder.bind(deadLetterQueue())
@@ -51,6 +63,10 @@ public class RabbitConfiguration {
                 .with("deadletter");
     }
 
+    /**
+     * Конфигурирует фабрику соединений RabbitMQ с кэшированием.
+     * @return объект CachingConnectionFactory
+     */
     @Bean
     public CachingConnectionFactory rabbitConnectionFactory() {
         CachingConnectionFactory connectionFactory = new CachingConnectionFactory();
@@ -62,11 +78,20 @@ public class RabbitConfiguration {
         return connectionFactory;
     }
 
+    /**
+     * Определяет конвертер сообщений для преобразования объектов в JSON и обратно.
+     * @return объект MessageConverter
+     */
     @Bean
     public MessageConverter jsonMessageConverter() {
         return new Jackson2JsonMessageConverter();
     }
 
+    /**
+     * Конфигурирует RabbitAdmin для управления операциями на брокере RabbitMQ.
+     * @param connectionFactory фабрика соединений RabbitMQ
+     * @return объект RabbitAdmin
+     */
     @Bean
     public RabbitAdmin rabbitAdmin(ConnectionFactory connectionFactory) {
         return new RabbitAdmin(connectionFactory);
@@ -91,6 +116,13 @@ public class RabbitConfiguration {
             ConnectionFactory connectionFactory,
             MessageConverter messageConverter
     ) {
+        /**
+         * Конфигурирует фабрику контейнеров слушателей RabbitMQ.
+         * Устанавливает ручное подтверждение сообщений (MANUAL ACK) и предзагрузку (prefetch) в 1.
+         * @param connectionFactory фабрика соединений RabbitMQ
+         * @param messageConverter конвертер сообщений
+         * @return объект SimpleRabbitListenerContainerFactory
+         */
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(messageConverter);

@@ -27,9 +27,9 @@ public class KafkaLogProducerService {
 
         try {
             kafkaTemplate.send(KAFKA_TOPIC, logMessage);
-            log.info("Successfully sent log message to Kafka topic {}: {}", KAFKA_TOPIC, logMessage);
+            log.info("Сообщение лога успешно отправлено в Kafka топик {}: {}", KAFKA_TOPIC, logMessage);
         } catch (Exception e) {
-            log.error("Error sending log message to Kafka topic {}: {}", KAFKA_TOPIC, logMessage, e);
+            log.error("Ошибка отправки сообщения лога в Kafka топик {}: {}", KAFKA_TOPIC, logMessage, e);
         }
     }
 }
