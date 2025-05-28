@@ -97,20 +97,6 @@ public class RabbitConfiguration {
         return new RabbitAdmin(connectionFactory);
     }
 
-    /*@Bean
-    public RetryTemplate retryTemplate() {
-        RetryTemplate retryTemplate = new RetryTemplate();
-
-        ExponentialBackOffPolicy backOffPolicy = new ExponentialBackOffPolicy();
-        backOffPolicy.setInitialInterval(1000);
-        backOffPolicy.setMultiplier(2.0);
-        backOffPolicy.setMaxInterval(5000);
-
-        retryTemplate.setBackOffPolicy(backOffPolicy);
-
-        return retryTemplate;
-    }*/
-
     @Bean
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
             ConnectionFactory connectionFactory,

@@ -9,7 +9,8 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
-        spring.json.value.default.type: com.example.eventconsumerservice.dto.DomainEvent
+        spring.json.value.default.type: com.abarigena.eventconsumerservice.dto.DomainEvent
+        spring.json.use.type.headers: false
     listener:
       ack-mode: MANUAL_IMMEDIATE
 
@@ -18,10 +19,11 @@ app:
   kafka:
     topics:
       taskflow-dlq: taskflow.dlq
+      taskflow-events: taskflow.events
 
 logging:
   level:
-    com.example.eventconsumerservice: INFO
+    com.abarigena.eventconsumerservice: INFO
     org.springframework.kafka: INFO
     root: WARN
 

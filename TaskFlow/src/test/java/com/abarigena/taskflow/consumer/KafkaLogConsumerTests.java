@@ -53,6 +53,26 @@ public class KafkaLogConsumerTests {
         return new ObjectMapper().registerModule(new JavaTimeModule()).writeValueAsString(logData);
     }
 
+    private void assertMapEquals(Map<String, Object> expected, Map<String, Object> actual) {
+        assertNotNull(actual, "Actual map should not be null");
+        assertEquals(expected.size(), actual.size(), "Maps should have the same size");
+
+        for (Map.Entry<String, Object> expectedEntry : expected.entrySet()) {
+            String key = expectedEntry.getKey();
+            Object expectedValue = expectedEntry.getValue();
+
+            assertTrue(actual.containsKey(key), "Actual map should contain key: " + key);
+            Object actualValue = actual.get(key);
+
+            if (expectedValue instanceof Number && actualValue instanceof Number) {
+                assertEquals(((Number) expectedValue).longValue(), ((Number) actualValue).longValue(),
+                        "Numeric value for key '" + key + "' should match");
+            } else {
+                assertEquals(expectedValue, actualValue, "Value for key '" + key + "' should match");
+            }
+        }
+    }
+
     @Test
     void testListenToLogTopic_ValidTaskCreatedMessage() throws JsonProcessingException {
         String level = "INFO";
@@ -63,7 +83,7 @@ public class KafkaLogConsumerTests {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         String kafkaMessage = createKafkaMessage(level, msg, context, timestamp);
 
-        when(logEntryService.saveLog(any(LogEntry.class))).thenReturn(Mono.just(new LogEntry())); // Return a dummy saved entry
+        when(logEntryService.saveLog(any(LogEntry.class))).thenReturn(Mono.just(new LogEntry()));
 
         kafkaLogConsumer.listenToLogTopic(kafkaMessage);
 
@@ -72,7 +92,7 @@ public class KafkaLogConsumerTests {
 
         assertEquals(LogEntry.LogLevel.INFO, capturedLogEntry.getLevel());
         assertEquals(msg, capturedLogEntry.getMessage());
-        assertEquals(context, capturedLogEntry.getContext());
+        assertMapEquals(context, capturedLogEntry.getContext());
         assertEquals(LocalDateTime.parse(timestamp), capturedLogEntry.getTimestamp());
     }
 
@@ -96,7 +116,7 @@ public class KafkaLogConsumerTests {
 
         assertEquals(LogEntry.LogLevel.INFO, capturedLogEntry.getLevel());
         assertEquals(msg, capturedLogEntry.getMessage());
-        assertEquals(context, capturedLogEntry.getContext());
+        assertMapEquals(context, capturedLogEntry.getContext());
         assertEquals(LocalDateTime.parse(timestamp), capturedLogEntry.getTimestamp());
     }
 
@@ -119,13 +139,13 @@ public class KafkaLogConsumerTests {
 
         assertEquals(LogEntry.LogLevel.INFO, capturedLogEntry.getLevel());
         assertEquals(msg, capturedLogEntry.getMessage());
-        assertEquals(context, capturedLogEntry.getContext());
+        assertMapEquals(context, capturedLogEntry.getContext());
         assertEquals(LocalDateTime.parse(timestamp), capturedLogEntry.getTimestamp());
     }
 
     @Test
     void testListenToLogTopic_MalformedJson() {
-        String malformedKafkaMessage = "{\"level\":\"INFO\", \"message\":\"Test message\", \"context\":{}"; // Missing closing brace for timestamp
+        String malformedKafkaMessage = "{\"level\":\"INFO\", \"message\":\"Test message\", \"context\":{}";
 
         assertDoesNotThrow(() -> kafkaLogConsumer.listenToLogTopic(malformedKafkaMessage));
 
@@ -134,7 +154,7 @@ public class KafkaLogConsumerTests {
 
     @Test
     void testListenToLogTopic_InvalidLogLevel() throws JsonProcessingException {
-        String level = "DEBUGS"; // Invalid level
+        String level = "DEBUGS";
         String msg = "Test with invalid level";
         Map<String, Object> context = Collections.singletonMap("key", "value");
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
@@ -147,7 +167,6 @@ public class KafkaLogConsumerTests {
         verify(logEntryService).saveLog(logEntryCaptor.capture());
         LogEntry capturedLogEntry = logEntryCaptor.getValue();
 
-        // Expect fallback to INFO
         assertEquals(LogEntry.LogLevel.INFO, capturedLogEntry.getLevel());
         assertEquals(msg, capturedLogEntry.getMessage());
     }
@@ -159,7 +178,7 @@ public class KafkaLogConsumerTests {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         
         Map<String, Object> logData = new HashMap<>();
-        logData.put("level", null); // Null level
+        logData.put("level", null);
         logData.put("message", msg);
         logData.put("context", context);
         logData.put("timestamp", timestamp);
@@ -172,7 +191,6 @@ public class KafkaLogConsumerTests {
         verify(logEntryService).saveLog(logEntryCaptor.capture());
         LogEntry capturedLogEntry = logEntryCaptor.getValue();
 
-        // Expect fallback to INFO
         assertEquals(LogEntry.LogLevel.INFO, capturedLogEntry.getLevel());
         assertEquals(msg, capturedLogEntry.getMessage());
     }
@@ -182,7 +200,7 @@ public class KafkaLogConsumerTests {
         String level = "WARN";
         String msg = "Test with invalid timestamp";
         Map<String, Object> context = Collections.singletonMap("timestampTest", true);
-        String invalidTimestamp = "2023-10-26T10:15:30.12345.123"; // Invalid format
+        String invalidTimestamp = "2023-10-26T10:15:30.12345.123";
         String kafkaMessage = createKafkaMessage(level, msg, context, invalidTimestamp);
         
         LocalDateTime beforeCall = LocalDateTime.now();
@@ -195,9 +213,9 @@ public class KafkaLogConsumerTests {
         verify(logEntryService).saveLog(logEntryCaptor.capture());
         LogEntry capturedLogEntry = logEntryCaptor.getValue();
 
-        // Expect fallback to current time
         assertNotNull(capturedLogEntry.getTimestamp());
-        assertTrue(capturedLogEntry.getTimestamp().isAfter(beforeCall.minusSeconds(1)) && capturedLogEntry.getTimestamp().isBefore(afterCall.plusSeconds(1)) );
+        assertTrue(capturedLogEntry.getTimestamp().isAfter(beforeCall.minusSeconds(1))
+                && capturedLogEntry.getTimestamp().isBefore(afterCall.plusSeconds(1)) );
         assertEquals(LogEntry.LogLevel.WARN, capturedLogEntry.getLevel());
     }
     
@@ -211,7 +229,7 @@ public class KafkaLogConsumerTests {
         logData.put("level", level);
         logData.put("message", msg);
         logData.put("context", context);
-        logData.put("timestamp", null); // Null timestamp
+        logData.put("timestamp", null);
         String kafkaMessage = new ObjectMapper().registerModule(new JavaTimeModule()).writeValueAsString(logData);
         
         LocalDateTime beforeCall = LocalDateTime.now();
@@ -223,9 +241,9 @@ public class KafkaLogConsumerTests {
         verify(logEntryService).saveLog(logEntryCaptor.capture());
         LogEntry capturedLogEntry = logEntryCaptor.getValue();
 
-        // Expect fallback to current time
         assertNotNull(capturedLogEntry.getTimestamp());
-        assertTrue(capturedLogEntry.getTimestamp().isAfter(beforeCall.minusSeconds(1)) && capturedLogEntry.getTimestamp().isBefore(afterCall.plusSeconds(1)) );
+        assertTrue(capturedLogEntry.getTimestamp().isAfter(beforeCall.minusSeconds(1))
+                && capturedLogEntry.getTimestamp().isBefore(afterCall.plusSeconds(1)) );
         assertEquals(LogEntry.LogLevel.ERROR, capturedLogEntry.getLevel());
     }
 
@@ -239,10 +257,8 @@ public class KafkaLogConsumerTests {
 
         when(logEntryService.saveLog(any(LogEntry.class))).thenReturn(Mono.error(new RuntimeException("DB error")));
 
-        // The listener should log the error from saveLog but not throw an exception itself
         assertDoesNotThrow(() -> kafkaLogConsumer.listenToLogTopic(kafkaMessage));
 
-        verify(logEntryService).saveLog(any(LogEntry.class)); // Verify it was called
-        // Further verification could involve checking log output if a test appender was configured.
+        verify(logEntryService).saveLog(any(LogEntry.class));
     }
 }

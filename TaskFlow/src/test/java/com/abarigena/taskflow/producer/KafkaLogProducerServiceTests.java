@@ -35,7 +35,7 @@ public class KafkaLogProducerServiceTests {
 
     @BeforeEach
     void setUp() {
-        // No specific setup needed here for now, mocks are injected.
+
     }
 
     @Test
@@ -57,7 +57,6 @@ public class KafkaLogProducerServiceTests {
         assertEquals(contextDetails, capturedMessage.get("context"));
         assertTrue(capturedMessage.containsKey("timestamp"));
 
-        // Verify timestamp is recent (e.g., within the last few seconds)
         LocalDateTime timestamp = LocalDateTime.parse((String) capturedMessage.get("timestamp"));
         assertTrue(timestamp.isBefore(LocalDateTime.now().plusSeconds(1)) && timestamp.isAfter(LocalDateTime.now().minusSeconds(5)));
     }
@@ -76,7 +75,7 @@ public class KafkaLogProducerServiceTests {
         assertNotNull(capturedMessage);
         assertEquals(level, capturedMessage.get("level"));
         assertEquals(message, capturedMessage.get("message"));
-        assertEquals(contextDetails, capturedMessage.get("context")); // Should be empty map
+        assertEquals(contextDetails, capturedMessage.get("context"));
         assertTrue(capturedMessage.containsKey("timestamp"));
     }
 
@@ -86,16 +85,11 @@ public class KafkaLogProducerServiceTests {
         String message = "Log that causes Kafka error";
         Map<String, Object> contextDetails = Collections.singletonMap("errorSource", "test");
 
-        // Simulate KafkaTemplate throwing an exception
         doThrow(new RuntimeException("Kafka send failed")).when(kafkaTemplate).send(anyString(), anyMap());
 
-        // The service method should catch the exception and log it (using @Slf4j)
-        // We are not verifying the log output here, just that the call was made and exception handled.
-        // The method itself doesn't throw the exception upwards.
         assertDoesNotThrow(() -> kafkaLogProducerService.sendLog(level, message, contextDetails));
 
         verify(kafkaTemplate).send(eq(TEST_TOPIC), messageCaptor.capture());
-        // Further assertions on the captured message can be done if needed
         Map<String, Object> capturedMessage = messageCaptor.getValue();
         assertEquals(level, capturedMessage.get("level"));
     }

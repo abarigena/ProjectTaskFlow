@@ -62,7 +62,9 @@ public class KafkaEventConsumer {
             log.info("Тип события: {}, ID сущности: {}, Тип сущности: {}, Время создания: {}, Полезная нагрузка: {}",
                     currentEvent.getEventType(), currentEvent.getEntityId(), currentEvent.getEntityType(), currentEvent.getCreatedAt(), eventPayloadJson);
 
-            switch (currentEvent.getEntityType()) {
+            String entityTypeUpper = currentEvent.getEntityType() != null ? currentEvent.getEntityType().toUpperCase() : null;
+
+            switch (entityTypeUpper) {
                 case "TASK":
                     log.info("[Обработка] Событие ЗАДАЧИ для ID: {}. Детали в общей полезной нагрузке.", currentEvent.getEntityId());
                     break;
