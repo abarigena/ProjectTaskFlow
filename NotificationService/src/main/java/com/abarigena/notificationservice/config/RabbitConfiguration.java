@@ -104,7 +104,7 @@ public class RabbitConfiguration {
     ) {
         /**
          * Конфигурирует фабрику контейнеров слушателей RabbitMQ.
-         * Устанавливает ручное подтверждение сообщений (MANUAL ACK) и предзагрузку (prefetch) в 1.
+         * Устанавливает ручное подтверждение сообщений (MANUAL ACK.
          * @param connectionFactory фабрика соединений RabbitMQ
          * @param messageConverter конвертер сообщений
          * @return объект SimpleRabbitListenerContainerFactory

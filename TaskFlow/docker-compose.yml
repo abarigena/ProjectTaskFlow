@@ -14,6 +14,19 @@ services:
     volumes:
       - mongo-data:/data/db
 
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: taskflow_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    command: ["postgres", "-c", "wal_level=logical"]
+
   rabbitmq:
     image: rabbitmq:latest
     ports:
@@ -52,5 +65,65 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
 
+  # Debezium Kafka Connect для CDC
+  debezium:
+    image: debezium/connect:2.4
+    container_name: debezium-connect
+    ports:
+      - "8083:8083"
+    depends_on:
+      - kafka
+      - postgres
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: my_connect_configs
+      OFFSET_STORAGE_TOPIC: my_connect_offsets
+      STATUS_STORAGE_TOPIC: my_connect_statuses
+      # Важно: увеличиваем replication factor только если у вас несколько брокеров
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+
+  # UI для удобства работы с Kafka Connect
+  kafka-connect-ui:
+    image: landoop/kafka-connect-ui:0.9.7
+    container_name: kafka-connect-ui
+    ports:
+      - "8000:8000"
+    environment:
+      CONNECT_URL: "http://debezium:8083/"
+      PROXY: "true"
+    depends_on:
+      - debezium
+
+  # OpenSearch (аналог Elasticsearch) для поиска и аналитики
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    container_name: opensearch
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: true
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+
+  # OpenSearch Dashboards (аналог Kibana) для визуализации
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.11.0
+    container_name: opensearch-dashboards
+    ports:
+      - "5601:5601"
+    environment:
+      OPENSEARCH_HOSTS: http://opensearch:9200
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: true
+    depends_on:
+      - opensearch
+
 volumes:
   mongo-data:
+  postgres-data:
+  opensearch-data:

@@ -2,6 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/CdcConsumerService.main.iml" filepath="$PROJECT_DIR$/.idea/modules/CdcConsumerService.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/EventConsumerService.main.iml" filepath="$PROJECT_DIR$/.idea/modules/EventConsumerService.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/EventConsumerService.test.iml" filepath="$PROJECT_DIR$/.idea/modules/EventConsumerService.test.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/NotificationService.main.iml" filepath="$PROJECT_DIR$/.idea/modules/NotificationService.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/ProjectTaskFlow.iml" filepath="$PROJECT_DIR$/.idea/ProjectTaskFlow.iml" />

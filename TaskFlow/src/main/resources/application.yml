@@ -52,7 +52,7 @@ spring:
     password: rabbitmq
 
 server:
-  port: 8000
+  port: 8050
 
 queue:
   name: task.History
