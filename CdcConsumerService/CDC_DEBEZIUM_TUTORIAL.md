@@ -42,25 +42,91 @@ PostgreSQL (WAL) → Debezium → Kafka → Spring Boot Consumer → OpenSearch
 
 ---
 
-## 🛠️ Практическая реализация
+## 🛠️ Практическая реализация (по нашим шагам)
 
-### Шаг 1: Настройка инфраструктуры
+### Шаг 1: Расширение Docker Compose
 
-**Docker Compose компоненты:**
-- `postgres` с `wal_level=logical`
-- `kafka` + `zookeeper`
-- `debezium-connect` (порт 8083)
-- `kafka-connect-ui` (порт 8000)
-- `opensearch` + `opensearch-dashboards`
+**Что добавили в docker-compose.yml:**
+```yaml
+  # Debezium Connect для CDC
+  debezium-connect:
+    image: debezium/connect:2.4
+    container_name: debezium-connect
+    ports:
+      - "8083:8083"
+    environment:
+      - BOOTSTRAP_SERVERS=kafka:29092
+      - GROUP_ID=debezium
+      - CONFIG_STORAGE_TOPIC=debezium_configs
+      - OFFSET_STORAGE_TOPIC=debezium_offsets
+      - STATUS_STORAGE_TOPIC=debezium_status
+    depends_on:
+      - kafka
+      - postgres
 
-**Ключевая команда:**
+  # UI для мониторинга Kafka Connect
+  kafka-connect-ui:
+    image: landoop/kafka-connect-ui:0.9.7
+    container_name: kafka-connect-ui
+    ports:
+      - "8000:8000"
+    environment:
+      - CONNECT_URL=http://debezium-connect:8083
+    depends_on:
+      - debezium-connect
+
+  # OpenSearch вместо Elasticsearch
+  opensearch:
+    image: opensearchproject/opensearch:2.10.0
+    container_name: opensearch
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+
+  # Dashboard для OpenSearch
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.10.0
+    container_name: opensearch-dashboards
+    ports:
+      - "5601:5601"
+    environment:
+      - OPENSEARCH_HOSTS=http://opensearch:9200
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    depends_on:
+      - opensearch
+```
+
+**Важное изменение в PostgreSQL:**
+```yaml
+postgres:
+  environment:
+    - POSTGRES_DB=taskflow_db
+    - POSTGRES_USER=postgres 
+    - POSTGRES_PASSWORD=password
+  command: >
+    postgres -c wal_level=logical
+             -c max_wal_senders=10
+             -c max_replication_slots=10
+```
+
+**Запуск:**
 ```bash
+cd ProjectTaskFlow/TaskFlow
 docker-compose up -d
 ```
 
 ### Шаг 2: Подготовка базы данных
 
-**Создание outbox таблицы:**
+**Подключение к PostgreSQL:**
+```bash
+docker exec -it postgres psql -U postgres -d taskflow_db
+```
+
+**Создание outbox таблицы (что мы выполнили):**
 ```sql
 CREATE TABLE outbox_events (
     id BIGSERIAL PRIMARY KEY,
@@ -70,35 +136,144 @@ CREATE TABLE outbox_events (
 );
 ```
 
+**Создание тестовой таблицы users:**
+```sql
+CREATE TABLE test_users (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Добавление тестовых данных (наши команды):**
+```sql
+-- Тестовые пользователи
+INSERT INTO test_users (name, email) VALUES 
+('John Doe', 'john@example.com'),
+('Jane Smith', 'jane@example.com');
+
+-- Тестовые события в outbox
+INSERT INTO outbox_events (event_type, event_data) VALUES 
+('USER_CREATED', '{"userId": 123, "name": "John Doe", "email": "john@example.com"}'),
+('USER_UPDATED', '{"userId": 123, "name": "John Updated", "email": "john.new@example.com"}'),
+('USER_PROFILE_VIEWED', '{"userId": 123, "viewerId": 456, "timestamp": "2025-06-25T10:30:00"}');
+```
+
 **Важно:** Outbox таблица должна быть в той же БД, что и бизнес-данные!
 
 ### Шаг 3: Настройка Debezium коннектора
 
-**REST API команда для создания коннектора:**
-```bash
-curl -X POST http://localhost:8083/connectors \
--H "Content-Type: application/json" \
--d @debezium-postgres-connector.json
+**Создание файла debezium-postgres-connector.json (что мы использовали):**
+```json
+{
+  "name": "postgres-outbox-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "plugin.name": "pgoutput",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "postgres",
+    "database.password": "password",
+    "database.dbname": "taskflow_db",
+    "database.server.name": "taskflow",
+    "table.include.list": "public.outbox_events,public.test_users",
+    "publication.autocreate.mode": "filtered",
+    "slot.name": "debezium_slot",
+    "topic.prefix": "taskflow"
+  }
+}
 ```
 
-**Ключевые параметры коннектора:**
-- `database.hostname`, `database.port`, `database.user`
-- `table.include.list: "public.outbox_events"`
-- `plugin.name: "pgoutput"`
-- `publication.autocreate.mode: "filtered"`
+**PowerShell команда для создания коннектора:**
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8083/connectors" -Method POST -ContentType "application/json" -Body (Get-Content "debezium-postgres-connector.json" -Raw)
+```
 
-### Шаг 4: Spring Boot CDC Consumer
+**Проверка статуса коннектора (наши команды):**
+```powershell
+# Список коннекторов
+Invoke-RestMethod -Uri "http://localhost:8083/connectors"
 
-**Основные зависимости:**
-- `spring-kafka` для Kafka integration
-- `opensearch-java` для поиска и аналитики
-- `jackson` для JSON парсинга
+# Статус конкретного коннектора
+Invoke-RestMethod -Uri "http://localhost:8083/connectors/postgres-outbox-connector/status"
 
-**Ключевые классы:**
-- `DebeziumEvent<T>` - обертка для CDC событий
-- `OutboxEventData` - структура outbox записи
-- `OutboxEventConsumer` - Kafka listener
-- `OpenSearchSyncService` - синхронизация с поисковой системой
+# Удаление коннектора (если нужно пересоздать)
+Invoke-RestMethod -Uri "http://localhost:8083/connectors/postgres-outbox-connector" -Method DELETE
+```
+
+**Проверка созданных топиков Kafka:**
+```bash
+docker exec kafka kafka-topics --list --bootstrap-server localhost:9092
+# Результат: taskflow.public.outbox_events, taskflow.public.test_users
+```
+
+### Шаг 4: Создание Spring Boot CDC Consumer Service
+
+**Структура проекта (что мы создали):**
+```
+CdcConsumerService/
+├── build.gradle
+├── src/main/java/com/abarigena/cdcconsumerservice/
+│   ├── CdcConsumerServiceApplication.java
+│   ├── config/
+│   │   ├── KafkaConfig.java
+│   │   └── OpenSearchConfig.java
+│   ├── dto/
+│   │   ├── DebeziumEvent.java
+│   │   └── OutboxEventData.java
+│   ├── consumer/
+│   │   └── OutboxEventConsumer.java
+│   ├── service/
+│   │   └── OpenSearchSyncService.java
+│   └── controller/
+│       └── HealthController.java
+└── src/main/resources/
+    └── application.yml
+```
+
+**build.gradle (ключевые зависимости):**
+```gradle
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    
+    // OpenSearch клиент (изначально был Elasticsearch, потом поменяли)
+    implementation 'org.opensearch.client:opensearch-rest-client:2.10.0'
+    implementation 'org.opensearch.client:opensearch-java:2.10.0'
+    
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+}
+```
+
+**application.yml конфигурация:**
+```yaml
+server:
+  port: 8084
+
+spring:
+  kafka:
+    consumer:
+      bootstrap-servers: localhost:29092
+      group-id: cdc-consumer-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+
+logging:
+  level:
+    com.abarigena.cdcconsumerservice: INFO
+    org.apache.kafka: WARN
+```
+
+**Запуск и тестирование:**
+```bash
+cd ProjectTaskFlow/CdcConsumerService
+./gradlew bootRun
+```
 
 ---
 
@@ -137,21 +312,42 @@ max_replication_slots = 10
 docker exec kafka kafka-topics --list --bootstrap-server localhost:9092
 ```
 
-### Проверка Debezium коннекторов:
-```bash
-curl http://localhost:8083/connectors
-curl http://localhost:8083/connectors/postgres-outbox-connector/status
+### Проверка Debezium коннекторов (PowerShell команды):
+```powershell
+# Список всех коннекторов
+Invoke-RestMethod -Uri "http://localhost:8083/connectors"
+
+# Статус конкретного коннектора
+Invoke-RestMethod -Uri "http://localhost:8083/connectors/postgres-outbox-connector/status"
+
+# Конфигурация коннектора
+Invoke-RestMethod -Uri "http://localhost:8083/connectors/postgres-outbox-connector/config"
 ```
 
-### Проверка OpenSearch индексов:
+### Мониторинг через Kafka Connect UI:
+- Открыть http://localhost:8000
+- Посмотреть статус коннекторов
+- Проверить ошибки и метрики
+
+### Проверка OpenSearch (наши команды):
 ```powershell
+# Список индексов с количеством документов
 Invoke-RestMethod -Uri "http://localhost:9200/_cat/indices?v"
+
+# Поиск последних событий
+$response = Invoke-RestMethod -Uri "http://localhost:9200/user-events-*/_search?sort=@timestamp:desc&size=5"
+$response.hits.hits | ForEach-Object { 
+    Write-Host "ID: $($_._id), Type: $($_._source.eventType), Time: $($_._source.'@timestamp')" 
+}
+
+# Количество событий по типам
+Invoke-RestMethod -Uri "http://localhost:9200/user-events-*/_search?size=0" -Method POST -ContentType "application/json" -Body '{"aggs":{"event_types":{"terms":{"field":"eventType.keyword"}}}}'
 ```
 
-### Поиск событий в OpenSearch:
-```powershell
-Invoke-RestMethod -Uri "http://localhost:9200/user-events-*/_search"
-```
+### OpenSearch Dashboards (http://localhost:5601):
+1. **Management** → **Index Patterns** → создать `user-events-*`
+2. **Discover** → выбрать index pattern → посмотреть данные
+3. **Dev Tools** → выполнить прямые запросы к OpenSearch
 
 ---
 
@@ -175,23 +371,71 @@ switch (eventData.getEventType()) {
 
 ---
 
-## 🚨 Проблемы и их решения
+### Шаг 5: Тестирование системы
+
+**Добавление новых событий (наши тесты):**
+```sql
+-- Подключаемся к БД
+docker exec -it postgres psql -U postgres -d taskflow_db
+
+-- Добавляем разные типы событий
+INSERT INTO outbox_events (event_type, event_data) VALUES 
+('USER_LOGIN', '{"ip": "192.168.1.1", "userId": 123, "loginTime": "2024-06-24T16:20:00"}'),
+('ORDER_CREATED', '{"amount": 99.99, "orderId": 456, "currency": "USD", "customerId": 123}'),
+('NOTIFICATION_SENT', '{"type": "EMAIL", "userId": 123, "subject": "Welcome!", "notificationId": 789}');
+```
+
+**Мониторинг Kafka Consumer (что мы видели в логах):**
+```
+🔥 Получено CDC событие из outbox: {"before":null,"after":{"id":47,"event_type":"USER_LOGIN"...
+📋 Обрабатываем бизнес-событие:
+   🆔 ID: 47
+   📝 Тип: USER_LOGIN
+   📄 Данные: {"ip": "192.168.1.1", "userId": 123, "loginTime": "2024-06-24T16:20:00"}
+🔐 Обработка входа пользователя: {"ip": "192.168.1.1", "userId": 123...
+📊 Событие синхронизировано с OpenSearch: userId=123, eventType=USER_LOGIN, index=user-events-2025-06
+```
+
+**Проверка данных в OpenSearch:**
+```powershell
+# Проверка индексов
+Invoke-RestMethod -Uri "http://localhost:9200/_cat/indices?v"
+
+# Поиск событий
+$response = Invoke-RestMethod -Uri "http://localhost:9200/user-events-2025-06/_search?size=10&sort=@timestamp:desc"
+$response.hits.hits | ForEach-Object { Write-Host "Event: $($_._source.eventType) at $($_._source.'@timestamp')" }
+```
+
+---
+
+## 🚨 Проблемы и их решения (что мы встретили)
 
 ### 1. Коннектор исчезает
+**Что произошло:** Коннектор создался, но потом пропал из списка
 **Причина:** Ошибки в конфигурации или недоступность БД
-**Решение:** Проверить логи и пересоздать коннектор
+**Как решили:** Пересоздали коннектор с правильной конфигурацией
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8083/connectors/postgres-outbox-connector" -Method DELETE
+Invoke-RestMethod -Uri "http://localhost:8083/connectors" -Method POST -ContentType "application/json" -Body (Get-Content "debezium-postgres-connector.json" -Raw)
+```
 
 ### 2. Content-Type ошибка 406
+**Что видели в логах:**
+```
+❌ Ошибка синхронизации с Elasticsearch: method [POST], host [http://localhost:9200], URI [/user-events-2025-06/_doc], status line [HTTP/1.1 406 Not Acceptable]
+{"error":"Content-Type header [application/vnd.elasticsearch+json; compatible-with=8] is not supported","status":406}
+```
 **Причина:** Использование Elasticsearch клиента с OpenSearch
-**Решение:** Использовать правильный `opensearch-java` клиент
+**Как решили:** Поменяли зависимости в build.gradle и переписали сервис для OpenSearch
 
 ### 3. Данные не видны в Dashboard
-**Причина:** Неправильный временной диапазон
-**Решение:** Расширить время поиска или использовать Dev Tools
+**Что произошло:** OpenSearch Dashboards показывал "No results match your search criteria"
+**Причина:** Неправильный временной диапазон (события были от 10:49, а поиск до 10:30)
+**Как решили:** Расширили временной диапазон на "Today" или использовали Dev Tools
 
-### 4. Неправильные timestamps
-**Причина:** Использование `LocalDateTime` вместо `Instant`
-**Решение:** Использовать `Instant.now().toString()` для UTC времени
+### 4. Jackson парсинг ошибки
+**Что встретили:** Ошибки парсинга LocalDateTime в JSON
+**Как решили:** Добавили зависимость `jackson-datatype-jsr310` и аннотацию `@JsonIgnoreProperties(ignoreUnknown = true)`
 
 ---
 

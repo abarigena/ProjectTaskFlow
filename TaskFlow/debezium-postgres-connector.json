@@ -1,5 +1,5 @@
 {
-  "name": "postgres-debezium-connector",
+  "name": "taskflow-postgres-connector",
   "config": {
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
     "database.hostname": "postgres",
@@ -7,15 +7,20 @@
     "database.user": "postgres",
     "database.password": "postgres",
     "database.dbname": "taskflow_db",
-    "database.server.name": "taskflow_server",
-    "table.include.list": "public.outbox_events,public.test_users",
+    "database.server.name": "taskflow",
+    "schema.include.list": "public",
+    "table.include.list": "public.tasks,public.comments,public.projects,public.users",
+    "topic.prefix": "taskflow",
+    "transforms": "route",
+    "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.route.regex": "([^.]+)\\.([^.]+)\\.([^.]+)",
+    "transforms.route.replacement": "$3",
     "plugin.name": "pgoutput",
-    "slot.name": "debezium_slot",
-    "publication.name": "debezium_publication",
+    "snapshot.mode": "initial",
+    "publication.autocreate.mode": "filtered",
     "key.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "key.converter.schemas.enable": "false",
-    "value.converter.schemas.enable": "false",
-    "topic.prefix": "taskflow"
+    "value.converter.schemas.enable": "false"
   }
 } 

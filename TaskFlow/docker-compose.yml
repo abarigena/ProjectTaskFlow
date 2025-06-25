@@ -15,10 +15,10 @@ services:
       - mongo-data:/data/db
 
   postgres:
-    image: postgres:15
+    image: postgres:17
     container_name: postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: taskflow_db
       POSTGRES_USER: postgres

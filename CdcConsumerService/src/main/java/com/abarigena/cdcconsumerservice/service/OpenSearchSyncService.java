@@ -1,10 +1,14 @@
 package com.abarigena.cdcconsumerservice.service;
 
+import com.abarigena.cdcconsumerservice.dto.CommentIndex;
+import com.abarigena.cdcconsumerservice.dto.ProjectIndex;
+import com.abarigena.cdcconsumerservice.dto.TaskIndex;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch.core.DeleteRequest;
 import org.opensearch.client.opensearch.core.IndexRequest;
 import org.springframework.stereotype.Service;
 
@@ -21,65 +25,143 @@ public class OpenSearchSyncService {
     private final ObjectMapper objectMapper;
 
     /**
-     * Синхронизирует событие пользователя с OpenSearch
+     * Универсальный метод для индексирования бизнес-сущностей
      */
-    public void syncUserEvent(Long userId, String eventType, String eventData) {
+    public void indexEntity(String entityType, Map<String, Object> entityData) {
         try {
-            // Парсим JSON данные события
-            JsonNode dataNode = objectMapper.readTree(eventData);
+            String indexName = getIndexName(entityType);
+            Object id = entityData.get("id");
             
-            // Создаем документ для индексации
-            Map<String, Object> document = new HashMap<>();
-            document.put("userId", userId);
-            document.put("eventType", eventType);
-            document.put("eventData", dataNode);
-            document.put("timestamp", LocalDateTime.now().toString());
-            document.put("@timestamp", LocalDateTime.now().toString()); // Для OpenSearch Dashboards time-based индекса
+            if (id == null) {
+                log.error("❌ Отсутствует ID для сущности типа: {}", entityType);
+                return;
+            }
             
-            // Индексируем в OpenSearch  
-            String indexName = "user-events-" + LocalDateTime.now().toString().substring(0, 7); // user-events-2025-01
+            // Добавляем метаданные индексации
+            Map<String, Object> document = new HashMap<>(entityData);
+            document.put("indexedAt", LocalDateTime.now().toString());
+            document.put("@timestamp", LocalDateTime.now().toString());
+            
+            // Нормализуем данные в зависимости от типа сущности
+            final Map<String, Object> finalDocument = normalizeEntityData(entityType, document);
             
             IndexRequest<Map<String, Object>> request = IndexRequest.of(i -> i
                 .index(indexName)
-                .document(document)
+                .id(String.valueOf(id))
+                .document(finalDocument)
             );
             
             openSearchClient.index(request);
             
-            log.info("📊 Событие синхронизировано с OpenSearch: userId={}, eventType={}, index={}", 
-                userId, eventType, indexName);
+            log.info("✅ Сущность {} с ID {} проиндексирована в OpenSearch (индекс: {})", 
+                entityType, id, indexName);
                 
         } catch (Exception e) {
-            log.error("❌ Ошибка синхронизации с OpenSearch: {}", e.getMessage(), e);
+            log.error("❌ Ошибка индексирования сущности {}: {}", entityType, e.getMessage(), e);
         }
     }
 
     /**
-     * Создает пользователя в OpenSearch для поиска
+     * Удаляет сущность из OpenSearch
      */
-    public void indexUser(String userData) {
+    public void deleteEntity(String entityType, String entityId) {
         try {
-            JsonNode userNode = objectMapper.readTree(userData);
+            String indexName = getIndexName(entityType);
             
-            Map<String, Object> userDocument = new HashMap<>();
-            userDocument.put("userId", userNode.get("userId").asLong());
-            userDocument.put("name", userNode.get("name").asText());
-            userDocument.put("email", userNode.get("email").asText());
-            userDocument.put("createdAt", LocalDateTime.now().toString());
-            userDocument.put("@timestamp", LocalDateTime.now().toString());
-            
-            IndexRequest<Map<String, Object>> request = IndexRequest.of(i -> i
-                .index("users")
-                .id(String.valueOf(userNode.get("userId").asLong()))
-                .document(userDocument)
+            DeleteRequest request = DeleteRequest.of(d -> d
+                .index(indexName)
+                .id(entityId)
             );
             
-            openSearchClient.index(request);
+            openSearchClient.delete(request);
             
-            log.info("👤 Пользователь проиндексирован в OpenSearch: {}", userNode.get("name").asText());
-            
+            log.info("🗑️ Сущность {} с ID {} удалена из OpenSearch (индекс: {})", 
+                entityType, entityId, indexName);
+                
         } catch (Exception e) {
-            log.error("❌ Ошибка индексации пользователя: {}", e.getMessage(), e);
+            log.error("❌ Ошибка удаления сущности {} с ID {}: {}", entityType, entityId, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Определяет имя индекса для типа сущности
+     */
+    private String getIndexName(String entityType) {
+        return switch (entityType.toLowerCase()) {
+            case "tasks" -> "tasks";
+            case "comments" -> "comments";
+            case "projects" -> "projects";
+            case "users" -> "users";
+            default -> entityType.toLowerCase();
+        };
+    }
+
+    /**
+     * Нормализует данные сущности для корректного сохранения в OpenSearch
+     */
+    private Map<String, Object> normalizeEntityData(String entityType, Map<String, Object> data) {
+        Map<String, Object> normalized = new HashMap<>(data);
+        
+        switch (entityType.toLowerCase()) {
+            case "tasks":
+                // Преобразуем enum'ы в строки для лучшего поиска
+                if (normalized.get("status") != null) {
+                    normalized.put("status", String.valueOf(normalized.get("status")));
+                }
+                if (normalized.get("priority") != null) {
+                    normalized.put("priority", String.valueOf(normalized.get("priority")));
+                }
+                break;
+            case "comments":
+                // Для комментариев переименуем context в content для соответствия индексу
+                if (normalized.get("context") != null) {
+                    normalized.put("content", normalized.get("context"));
+                    normalized.remove("context");
+                }
+                break;
+            case "projects":
+                // Преобразуем статус проекта в строку
+                if (normalized.get("status") != null) {
+                    normalized.put("status", String.valueOf(normalized.get("status")));
+                }
+                break;
+            case "users":
+                // Объединяем имя и фамилию для лучшего поиска
+                String firstName = (String) normalized.get("first_name");
+                String lastName = (String) normalized.get("last_name");
+                if (firstName != null && lastName != null) {
+                    normalized.put("fullName", firstName + " " + lastName);
+                }
+                break;
+        }
+        
+        return normalized;
+    }
+
+    // Оставляем старые методы для обратной совместимости, но помечаем как deprecated
+    @Deprecated
+    public void syncUserEvent(Long userId, String eventType, String eventData) {
+        log.warn("⚠️ Метод syncUserEvent устарел, используйте indexEntity для users");
+        try {
+            Map<String, Object> userData = new HashMap<>();
+            userData.put("id", userId);
+            userData.put("eventType", eventType);
+            userData.put("eventData", eventData);
+            indexEntity("user-events", userData);
+        } catch (Exception e) {
+            log.error("❌ Ошибка в deprecated методе syncUserEvent: {}", e.getMessage(), e);
+        }
+    }
+
+    @Deprecated
+    public void indexUser(String userData) {
+        log.warn("⚠️ Метод indexUser устарел, используйте indexEntity для users");
+        try {
+            JsonNode userNode = objectMapper.readTree(userData);
+            Map<String, Object> userMap = objectMapper.convertValue(userNode, Map.class);
+            indexEntity("users", userMap);
+        } catch (Exception e) {
+            log.error("❌ Ошибка в deprecated методе indexUser: {}", e.getMessage(), e);
         }
     }
 }

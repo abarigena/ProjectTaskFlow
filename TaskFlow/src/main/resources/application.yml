@@ -14,7 +14,7 @@ spring:
     name: TaskFlow
 
   r2dbc:
-    url: r2dbc:postgresql://localhost:5432/taskflow_db
+    url: r2dbc:postgresql://localhost:5433/taskflow_db
     username: postgres
     password: postgres
     properties:
@@ -26,7 +26,7 @@ spring:
       max-idle-time: 10m
 
   flyway:
-    url: jdbc:postgresql://localhost:5432/taskflow_db
+    url: jdbc:postgresql://localhost:5433/taskflow_db
     user: ${spring.r2dbc.username}
     password: ${spring.r2dbc.password}
     baseline-on-migrate: true
@@ -50,6 +50,19 @@ spring:
     port: 5672
     username: rabbitmq
     password: rabbitmq
+
+# Конфигурация OpenSearch для поиска и аналитики
+opensearch:
+  host: localhost
+  port: 9200
+
+# Конфигурация Debezium для автоматической инициализации CDC
+debezium:
+  connect:
+    url: http://localhost:8083
+    connector:
+      name: taskflow-postgres-connector
+      config-file: classpath:debezium-postgres-connector.json
 
 server:
   port: 8050
