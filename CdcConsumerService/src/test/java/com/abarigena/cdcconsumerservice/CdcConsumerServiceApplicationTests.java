@@ -8,6 +8,5 @@ class CdcConsumerServiceApplicationTests {
 
     @Test
     void contextLoads() {
-        // Простой тест для проверки загрузки контекста
     }
 } 

@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 
 /**
  * DTO для индексирования пользователей в OpenSearch
- * Соответствует требованиям Task-11
  */
 @Data
 @Builder
