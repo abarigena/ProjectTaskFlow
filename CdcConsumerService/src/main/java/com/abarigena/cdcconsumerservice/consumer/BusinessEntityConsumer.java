@@ -91,9 +91,17 @@ public class BusinessEntityConsumer {
             switch (operation) {
                 case "c": // CREATE
                 case "u": // UPDATE
+                case "r": // READ (Initial snapshot)
                     if (debeziumEvent.getAfter() != null) {
-                        openSearchSyncService.indexEntity(entityType, debeziumEvent.getAfter());
-                        log.info("✅ Сущность {} проиндексирована в OpenSearch", entityType);
+                        // Используем типизированный метод для лучшей обработки данных
+                        openSearchSyncService.indexEntityTyped(entityType, debeziumEvent.getAfter());
+                        String operationName = switch (operation) {
+                            case "c" -> "создана";
+                            case "u" -> "обновлена";
+                            case "r" -> "загружена из snapshot";
+                            default -> "обработана";
+                        };
+                        log.info("✅ Сущность {} {} и проиндексирована в OpenSearch", entityType, operationName);
                     }
                     break;
                 case "d": // DELETE

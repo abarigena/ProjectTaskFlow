@@ -1,5 +1,7 @@
 package com.abarigena.cdcconsumerservice.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.apache.http.HttpHost;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.json.jackson.JacksonJsonpMapper;
@@ -22,15 +24,23 @@ public class OpenSearchConfig {
     private int opensearchPort;
 
     @Bean
-    public OpenSearchClient openSearchClient() {
+    public ObjectMapper objectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        return mapper;
+    }
+
+    @Bean
+    public OpenSearchClient openSearchClient(ObjectMapper objectMapper) {
         // Создание REST клиента для соединения с OpenSearch
         RestClient restClient = RestClient.builder(
             new HttpHost(opensearchHost, opensearchPort, "http")
         ).build();
 
-        // Создание транспорта с Jackson JSON mapper
+        // Создание транспорта с настроенным Jackson JSON mapper
         RestClientTransport transport = new RestClientTransport(
-            restClient, new JacksonJsonpMapper()
+            restClient, new JacksonJsonpMapper(objectMapper)
         );
 
         // Создание OpenSearch клиента

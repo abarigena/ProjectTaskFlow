@@ -7,7 +7,7 @@ import java.util.Map;
 
 /**
  * Сервис для работы с OpenSearch в TaskFlow
- * Обеспечивает поиск по задачам, комментариям, проектам и аналитику
+ * Обеспечивает поиск по задачам, комментариям, проектам, пользователям и аналитику
  */
 public interface OpenSearchService {
 
@@ -25,6 +25,11 @@ public interface OpenSearchService {
      * Поиск проектов по критериям
      */
     Flux<Map<String, Object>> searchProjects(String query, String status, Integer from, Integer size);
+
+    /**
+     * Поиск пользователей по критериям
+     */
+    Flux<Map<String, Object>> searchUsers(String query, Boolean active, Integer from, Integer size);
 
     /**
      * Аналитика задач по статусам
