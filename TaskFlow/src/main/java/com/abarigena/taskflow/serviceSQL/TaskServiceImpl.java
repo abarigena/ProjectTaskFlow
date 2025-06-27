@@ -6,6 +6,7 @@ import com.abarigena.taskflow.exception.ResourceNotFoundException;
 import com.abarigena.taskflow.mapper.TaskHistoryMapper;
 import com.abarigena.taskflow.mapper.TaskMapper;
 import com.abarigena.taskflow.producer.RabbitProducer;
+import com.abarigena.taskflow.service.ReactiveRedisService;
 import com.abarigena.taskflow.serviceNoSQL.TaskHistoryService;
 import com.abarigena.taskflow.storeNoSQL.entity.TaskHistory;
 import com.abarigena.taskflow.storeSQL.entity.Task;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Objects;
@@ -36,6 +38,10 @@ public class TaskServiceImpl implements TaskService {
     private final TaskHistoryService taskHistoryService;
     private final RabbitProducer rabbitProducer;
     private final TaskHistoryMapper taskHistoryMapper;
+    private final ReactiveRedisService reactiveRedisService;
+
+    private static final String TASK_ID_CACHE_KEY_PREFIX = "task:id:";
+    private static final Duration TASK_CACHE_TTL = Duration.ofMinutes(30);
 
     @Value("${taskflow.routing.notification-topic-delete}")
     private String deleteTopicRoutingKey;
@@ -78,9 +84,15 @@ public class TaskServiceImpl implements TaskService {
      */
     @Override
     public Mono<TaskDto> getTaskById(Long taskId) {
-        return taskRepository.findById(taskId)
-                .map(taskMapper::toDto)
-                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Task", "id", taskId)));
+        String cacheKey = TASK_ID_CACHE_KEY_PREFIX + taskId;
+        return reactiveRedisService.getOrSet(
+                cacheKey,
+                () -> taskRepository.findById(taskId)
+                        .map(taskMapper::toDto)
+                        .switchIfEmpty(Mono.error(new ResourceNotFoundException("Task", "id", taskId))),
+                TASK_CACHE_TTL,
+                TaskDto.class
+        );
     }
 
     /**
@@ -157,7 +169,6 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional
     public Mono<TaskDto> updateTask(Long id, TaskDto taskDto) {
-
         return taskRepository.findById(id)
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ResourceNotFoundException("Task", "id", id))))
                 .flatMap(existingTask -> {
@@ -192,9 +203,11 @@ public class TaskServiceImpl implements TaskService {
 
                     return Mono.when(projectValidationMono, userValidationMono)
                             .then(Mono.defer(() -> taskRepository.save(existingTask)));
-
                 })
-
+                .flatMap(updatedTask -> {
+                    return reactiveRedisService.evict(TASK_ID_CACHE_KEY_PREFIX + updatedTask.getId())
+                            .thenReturn(updatedTask);
+                })
                 .flatMap(updatedTask -> {
                     TaskHistory history = TaskHistory.builder()
                             .taskId(updatedTask.getId())
@@ -210,7 +223,6 @@ public class TaskServiceImpl implements TaskService {
                     return taskHistoryService.saveHistory(history)
                             .thenReturn(updatedTask);
                 })
-
                 .map(taskMapper::toDto);
     }
 
@@ -218,7 +230,7 @@ public class TaskServiceImpl implements TaskService {
      * Удаляет задачу по ее идентификатору. Автоматически записывает историю удаления задачи.
      *
      * @param id Идентификатор задачи для удаления.
-     * @return Пустой Mono, сигнализирующий о завершении операции, или ошибку ResourceNotFoundException, если задача не найдена.
+     * @return Пустой Mono, сигнализирующий о завершении операции.
      */
     @Override
     @Transactional
@@ -226,20 +238,18 @@ public class TaskServiceImpl implements TaskService {
         return taskRepository.findById(id)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("Task", "id", id)))
                 .flatMap(existingTask -> {
-                    TaskHistory history = TaskHistory.builder()
-                            .taskId(existingTask.getId())
-                            .action(TaskHistory.Action.DELETE)
-                            .performedBy(0L) // TODO: Заменить на реальный ID пользователя
-                            .timestamp(LocalDateTime.now())
-                            .status("Deleted")
-                            .details(Map.of("Title", existingTask.getTitle()))
-                            .build();
+                    TaskHistoryDto historyDto = new TaskHistoryDto();
+                    historyDto.setTaskId(existingTask.getId());
+                    historyDto.setAction(TaskHistory.Action.DELETE);
+                    historyDto.setTimestamp(LocalDateTime.now());
+                    historyDto.setPerformedBy(0L); // TODO: Implement user context
+                    historyDto.setDetails(Map.of("title", existingTask.getTitle()));
 
-                    rabbitProducer.sendDeleteNotification(taskHistoryMapper.toDto(history),
-                            deleteTopicRoutingKey);
+                    rabbitProducer.sendDeleteNotification(historyDto, deleteTopicRoutingKey);
 
-                    return taskHistoryService.saveHistory(history)
-                            .then(taskRepository.deleteById(existingTask.getId()));
+                    return taskRepository.deleteById(id)
+                            .then(reactiveRedisService.evict(TASK_ID_CACHE_KEY_PREFIX + id))
+                            .then();
                 });
     }
 

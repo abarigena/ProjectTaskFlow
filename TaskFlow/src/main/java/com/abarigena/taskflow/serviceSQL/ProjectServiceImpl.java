@@ -5,6 +5,7 @@ import com.abarigena.taskflow.dto.UserDto;
 import com.abarigena.taskflow.exception.ResourceNotFoundException;
 import com.abarigena.taskflow.mapper.ProjectMapper;
 import com.abarigena.taskflow.mapper.UserMapper;
+import com.abarigena.taskflow.service.ReactiveRedisService;
 import com.abarigena.taskflow.storeSQL.entity.Project;
 import com.abarigena.taskflow.storeSQL.repository.ProjectRepository;
 import com.abarigena.taskflow.storeSQL.repository.UserRepository;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Service
@@ -27,6 +29,10 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectMapper projectMapper;
     private final UserMapper userMapper;
     private final UserRepository userRepository;
+    private final ReactiveRedisService reactiveRedisService;
+
+    private static final String PROJECT_ID_CACHE_KEY_PREFIX = "project:id:";
+    private static final Duration PROJECT_CACHE_TTL = Duration.ofHours(1);
 
     /**
      * Находит все проекты с поддержкой пагинации и сортировки.
@@ -76,10 +82,15 @@ public class ProjectServiceImpl implements ProjectService {
      */
     @Override
     public Mono<ProjectDto> getProjectById(Long projectId) {
-
-        return projectRepository.findById(projectId)
-                .switchIfEmpty(Mono.error(new ResourceNotFoundException("project", "id", projectId)))
-                .map(projectMapper::toDto);
+        String cacheKey = PROJECT_ID_CACHE_KEY_PREFIX + projectId;
+        return reactiveRedisService.getOrSet(
+                cacheKey,
+                () -> projectRepository.findById(projectId)
+                        .map(projectMapper::toDto)
+                        .switchIfEmpty(Mono.error(new ResourceNotFoundException("project", "id", projectId))),
+                PROJECT_CACHE_TTL,
+                ProjectDto.class
+        );
     }
 
     /**
@@ -117,22 +128,23 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional
     public Mono<ProjectDto> updateProject(Long id, ProjectDto projectDto) {
-
         return projectRepository.findById(id)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("project", "id", id)))
                 .flatMap(existingProject -> {
-
                     projectMapper.updateEntityFromDto(projectDto, existingProject);
-
                     existingProject.setUpdatedAt(LocalDateTime.now());
-                    Mono<Boolean> ownerCHeck = userRepository.existsById(existingProject.getOwnerId())
+                    Mono<Boolean> ownerCheck = userRepository.existsById(existingProject.getOwnerId())
                             .filter(Boolean::booleanValue)
                             .switchIfEmpty(Mono.error(new ResourceNotFoundException("Owner", "id", existingProject.getOwnerId())));
 
-                    return Mono.when(ownerCHeck)
+                    return Mono.when(ownerCheck)
                             .then(Mono.just(existingProject));
                 })
                 .flatMap(projectRepository::save)
+                .flatMap(savedProject ->
+                        reactiveRedisService.evict(PROJECT_ID_CACHE_KEY_PREFIX + savedProject.getId())
+                                .thenReturn(savedProject)
+                )
                 .map(projectMapper::toDto);
     }
 
@@ -145,11 +157,13 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional
     public Mono<Void> deleteProject(Long id) {
-
         return projectRepository.findById(id)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("project", "id", id)))
-                .flatMap(existingProject -> projectRepository.deleteById(existingProject.getId()))
-                ;
+                .flatMap(existingProject ->
+                        projectRepository.deleteById(existingProject.getId())
+                                .then(reactiveRedisService.evict(PROJECT_ID_CACHE_KEY_PREFIX + existingProject.getId()))
+                                .then()
+                );
     }
 
     /**
