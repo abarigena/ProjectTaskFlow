@@ -7,6 +7,7 @@ import com.abarigena.taskflow.mapper.TaskHistoryMapper;
 import com.abarigena.taskflow.mapper.TaskMapper;
 import com.abarigena.taskflow.producer.RabbitProducer;
 import com.abarigena.taskflow.service.ReactiveRedisService;
+import com.abarigena.taskflow.service.RedisEventPublisher;
 import com.abarigena.taskflow.serviceNoSQL.TaskHistoryService;
 import com.abarigena.taskflow.storeNoSQL.entity.TaskHistory;
 import com.abarigena.taskflow.storeSQL.entity.Task;
@@ -39,6 +40,7 @@ public class TaskServiceImpl implements TaskService {
     private final RabbitProducer rabbitProducer;
     private final TaskHistoryMapper taskHistoryMapper;
     private final ReactiveRedisService reactiveRedisService;
+    private final RedisEventPublisher redisEventPublisher;
 
     private static final String TASK_ID_CACHE_KEY_PREFIX = "task:id:";
     private static final Duration TASK_CACHE_TTL = Duration.ofMinutes(30);
@@ -205,7 +207,7 @@ public class TaskServiceImpl implements TaskService {
                             .then(Mono.defer(() -> taskRepository.save(existingTask)));
                 })
                 .flatMap(updatedTask -> {
-                    return reactiveRedisService.evict(TASK_ID_CACHE_KEY_PREFIX + updatedTask.getId())
+                    return redisEventPublisher.publishTaskUpdated(updatedTask.getId())
                             .thenReturn(updatedTask);
                 })
                 .flatMap(updatedTask -> {
@@ -248,8 +250,9 @@ public class TaskServiceImpl implements TaskService {
                     rabbitProducer.sendDeleteNotification(historyDto, deleteTopicRoutingKey);
 
                     return taskRepository.deleteById(id)
-                            .then(reactiveRedisService.evict(TASK_ID_CACHE_KEY_PREFIX + id))
-                            .then();
+                            .then(
+                                    redisEventPublisher.publishTaskDeleted(id)
+                            );
                 });
     }
 

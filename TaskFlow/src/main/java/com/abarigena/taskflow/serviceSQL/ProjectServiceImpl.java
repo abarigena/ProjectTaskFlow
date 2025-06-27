@@ -6,6 +6,7 @@ import com.abarigena.taskflow.exception.ResourceNotFoundException;
 import com.abarigena.taskflow.mapper.ProjectMapper;
 import com.abarigena.taskflow.mapper.UserMapper;
 import com.abarigena.taskflow.service.ReactiveRedisService;
+import com.abarigena.taskflow.service.RedisEventPublisher;
 import com.abarigena.taskflow.storeSQL.entity.Project;
 import com.abarigena.taskflow.storeSQL.repository.ProjectRepository;
 import com.abarigena.taskflow.storeSQL.repository.UserRepository;
@@ -30,6 +31,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final UserMapper userMapper;
     private final UserRepository userRepository;
     private final ReactiveRedisService reactiveRedisService;
+    private final RedisEventPublisher redisEventPublisher;
 
     private static final String PROJECT_ID_CACHE_KEY_PREFIX = "project:id:";
     private static final Duration PROJECT_CACHE_TTL = Duration.ofHours(1);
@@ -142,7 +144,7 @@ public class ProjectServiceImpl implements ProjectService {
                 })
                 .flatMap(projectRepository::save)
                 .flatMap(savedProject ->
-                        reactiveRedisService.evict(PROJECT_ID_CACHE_KEY_PREFIX + savedProject.getId())
+                        redisEventPublisher.publishProjectUpdated(savedProject.getId())
                                 .thenReturn(savedProject)
                 )
                 .map(projectMapper::toDto);
@@ -161,8 +163,9 @@ public class ProjectServiceImpl implements ProjectService {
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("project", "id", id)))
                 .flatMap(existingProject ->
                         projectRepository.deleteById(existingProject.getId())
-                                .then(reactiveRedisService.evict(PROJECT_ID_CACHE_KEY_PREFIX + existingProject.getId()))
-                                .then()
+                                .then(
+                                        redisEventPublisher.publishProjectDeleted(existingProject.getId())
+                                )
                 );
     }
 

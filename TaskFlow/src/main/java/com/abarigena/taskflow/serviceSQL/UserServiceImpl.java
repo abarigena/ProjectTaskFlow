@@ -4,6 +4,7 @@ import com.abarigena.taskflow.dto.UserDto;
 import com.abarigena.taskflow.exception.ResourceNotFoundException;
 import com.abarigena.taskflow.mapper.UserMapper;
 import com.abarigena.taskflow.service.ReactiveRedisService;
+import com.abarigena.taskflow.service.RedisEventPublisher;
 import com.abarigena.taskflow.storeSQL.entity.User;
 import com.abarigena.taskflow.storeSQL.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +28,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final ReactiveRedisService reactiveRedisService;
+    private final RedisEventPublisher redisEventPublisher;
 
     private static final String USER_ID_CACHE_KEY_PREFIX = "user:id:";
     private static final String USER_EMAIL_CACHE_KEY_PREFIX = "user:email:";
@@ -122,7 +125,6 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public Mono<UserDto> updateUser(Long id, UserDto userDto) {
-
         return userRepository.findById(id)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User", "id", id)))
                 .flatMap(existingUser -> {
@@ -132,12 +134,14 @@ public class UserServiceImpl implements UserService {
 
                     return userRepository.save(existingUser)
                             .flatMap(savedUser -> {
-                                // При обновлении инвалидируем кэш по ID и по старому/новому email
-                                return reactiveRedisService.evictAll(
-                                        USER_ID_CACHE_KEY_PREFIX + savedUser.getId(),
-                                        USER_EMAIL_CACHE_KEY_PREFIX + oldEmail,
-                                        USER_EMAIL_CACHE_KEY_PREFIX + savedUser.getEmail()
-                                ).thenReturn(savedUser);
+                                // Публикуем событие обновления пользователя через Pub/Sub
+                                Map<String, Object> metadata = Map.of(
+                                    "oldEmail", oldEmail,
+                                    "newEmail", savedUser.getEmail()
+                                );
+                                
+                                return redisEventPublisher.publishUserUpdated(savedUser.getId(), metadata)
+                                        .thenReturn(savedUser);
                             });
                 })
                 .map(userMapper::toDto);
@@ -157,13 +161,12 @@ public class UserServiceImpl implements UserService {
                 .flatMap(existingUser ->
                         userRepository.deleteById(existingUser.getId())
                                 .then(
-                                        // При удалении инвалидируем кэш по ID и по email
-                                        reactiveRedisService.evictAll(
-                                                USER_ID_CACHE_KEY_PREFIX + existingUser.getId(),
-                                                USER_EMAIL_CACHE_KEY_PREFIX + existingUser.getEmail()
+                                        // Публикуем событие удаления пользователя через Pub/Sub
+                                        redisEventPublisher.publishUserDeleted(
+                                                existingUser.getId(),
+                                                Map.of("email", existingUser.getEmail())
                                         )
                                 )
-                                .then()
                 );
     }
 }
