@@ -1,15 +1,20 @@
 package com.abarigena.taskflow.service;
 
 import com.abarigena.taskflow.dto.CacheInvalidationEvent;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
+import org.springframework.data.redis.connection.ReactiveSubscription;
+import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import java.util.Map;
 
 /**
@@ -22,6 +27,7 @@ public class RedisEventSubscriber {
     
     private final ReactiveRedisConnectionFactory connectionFactory;
     private final ReactiveRedisService reactiveRedisService;
+    private final ObjectMapper redisObjectMapper;
     
     private ReactiveRedisMessageListenerContainer container;
     
@@ -50,8 +56,15 @@ public class RedisEventSubscriber {
     @PreDestroy
     public void destroy() {
         if (container != null) {
-            container.destroyLater().subscribe();
-            log.info("Redis Pub/Sub subscriber destroyed");
+            try {
+                container.destroyLater()
+                    .doOnSuccess(v -> log.info("Redis Pub/Sub subscriber destroyed"))
+                    .doOnError(error -> log.warn("Error during Redis container destruction: {}", error.getMessage()))
+                    .onErrorComplete()  // Игнорируем ошибки при закрытии
+                    .subscribe();
+            } catch (Exception e) {
+                log.warn("Error during Redis container destruction: {}", e.getMessage());
+            }
         }
     }
     
@@ -59,57 +72,61 @@ public class RedisEventSubscriber {
      * Подписка на события пользователей
      */
     private void subscribeToUserEvents() {
-        // Обновление пользователя
-        container.receive(USER_UPDATED_CHANNEL)
-            .cast(CacheInvalidationEvent.class)
-            .flatMap(this::handleUserUpdated)
-            .doOnError(error -> log.error("Error processing user updated event", error))
-            .subscribe();
-        
-        // Удаление пользователя
-        container.receive(USER_DELETED_CHANNEL)
-            .cast(CacheInvalidationEvent.class)
-            .flatMap(this::handleUserDeleted)
-            .doOnError(error -> log.error("Error processing user deleted event", error))
-            .subscribe();
+        receiveAndDeserialize(USER_UPDATED_CHANNEL, CacheInvalidationEvent.class)
+                .flatMap(this::handleUserUpdated)
+                .doOnError(error -> log.error("Error processing user updated event", error))
+                .subscribe();
+
+        receiveAndDeserialize(USER_DELETED_CHANNEL, CacheInvalidationEvent.class)
+                .flatMap(this::handleUserDeleted)
+                .doOnError(error -> log.error("Error processing user deleted event", error))
+                .subscribe();
     }
     
     /**
      * Подписка на события проектов
      */
     private void subscribeToProjectEvents() {
-        // Обновление проекта
-        container.receive(PROJECT_UPDATED_CHANNEL)
-            .cast(CacheInvalidationEvent.class)
-            .flatMap(this::handleProjectUpdated)
-            .doOnError(error -> log.error("Error processing project updated event", error))
-            .subscribe();
-        
-        // Удаление проекта
-        container.receive(PROJECT_DELETED_CHANNEL)
-            .cast(CacheInvalidationEvent.class)
-            .flatMap(this::handleProjectDeleted)
-            .doOnError(error -> log.error("Error processing project deleted event", error))
-            .subscribe();
+        receiveAndDeserialize(PROJECT_UPDATED_CHANNEL, CacheInvalidationEvent.class)
+                .flatMap(this::handleProjectUpdated)
+                .doOnError(error -> log.error("Error processing project updated event", error))
+                .subscribe();
+
+        receiveAndDeserialize(PROJECT_DELETED_CHANNEL, CacheInvalidationEvent.class)
+                .flatMap(this::handleProjectDeleted)
+                .doOnError(error -> log.error("Error processing project deleted event", error))
+                .subscribe();
     }
     
     /**
      * Подписка на события задач
      */
     private void subscribeToTaskEvents() {
-        // Обновление задачи
-        container.receive(TASK_UPDATED_CHANNEL)
-            .cast(CacheInvalidationEvent.class)
-            .flatMap(this::handleTaskUpdated)
-            .doOnError(error -> log.error("Error processing task updated event", error))
-            .subscribe();
-        
-        // Удаление задачи
-        container.receive(TASK_DELETED_CHANNEL)
-            .cast(CacheInvalidationEvent.class)
-            .flatMap(this::handleTaskDeleted)
-            .doOnError(error -> log.error("Error processing task deleted event", error))
-            .subscribe();
+        receiveAndDeserialize(TASK_UPDATED_CHANNEL, CacheInvalidationEvent.class)
+                .flatMap(this::handleTaskUpdated)
+                .doOnError(error -> log.error("Error processing task updated event", error))
+                .subscribe();
+
+        receiveAndDeserialize(TASK_DELETED_CHANNEL, CacheInvalidationEvent.class)
+                .flatMap(this::handleTaskDeleted)
+                .doOnError(error -> log.error("Error processing task deleted event", error))
+                .subscribe();
+    }
+
+    /**
+     * Хелпер для подписки на канал и десериализации сообщения
+     */
+    private <T> Flux<T> receiveAndDeserialize(String channel, Class<T> clazz) {
+        return container.receive(new ChannelTopic(channel))
+                .map(ReactiveSubscription.Message::getMessage)
+                .flatMap(json -> {
+                    try {
+                        return Mono.just(redisObjectMapper.readValue(json, clazz));
+                    } catch (JsonProcessingException e) {
+                        log.error("Failed to parse event from channel {}", channel, e);
+                        return Mono.empty();
+                    }
+                });
     }
     
     /**
@@ -173,7 +190,8 @@ public class RedisEventSubscriber {
         String projectKey = "project:id:" + projectId;
         
         return reactiveRedisService.evict(projectKey)
-            .doOnSuccess(v -> log.info("Cache invalidated for project ID: {}", projectId));
+            .doOnSuccess(v -> log.info("Cache invalidated for project ID: {}", projectId))
+            .then();
     }
     
     /**
@@ -186,7 +204,8 @@ public class RedisEventSubscriber {
         String projectKey = "project:id:" + projectId;
         
         return reactiveRedisService.evict(projectKey)
-            .doOnSuccess(v -> log.info("Cache invalidated for deleted project ID: {}", projectId));
+            .doOnSuccess(v -> log.info("Cache invalidated for deleted project ID: {}", projectId))
+            .then();
     }
     
     /**
@@ -199,7 +218,8 @@ public class RedisEventSubscriber {
         String taskKey = "task:id:" + taskId;
         
         return reactiveRedisService.evict(taskKey)
-            .doOnSuccess(v -> log.info("Cache invalidated for task ID: {}", taskId));
+            .doOnSuccess(v -> log.info("Cache invalidated for task ID: {}", taskId))
+            .then();
     }
     
     /**
@@ -212,6 +232,7 @@ public class RedisEventSubscriber {
         String taskKey = "task:id:" + taskId;
         
         return reactiveRedisService.evict(taskKey)
-            .doOnSuccess(v -> log.info("Cache invalidated for deleted task ID: {}", taskId));
+            .doOnSuccess(v -> log.info("Cache invalidated for deleted task ID: {}", taskId))
+            .then();
     }
 } 

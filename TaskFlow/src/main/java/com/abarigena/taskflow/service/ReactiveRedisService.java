@@ -100,6 +100,17 @@ public class ReactiveRedisService {
     }
 
     /**
+     * Очистить всю базу данных Redis (используется только для тестирования)
+     */
+    public Mono<String> flushAll() {
+        return reactiveRedisTemplate.execute(connection -> 
+                connection.serverCommands().flushAll()
+            )
+            .then(Mono.just("OK"))
+            .doOnNext(result -> log.debug("Cache FLUSH ALL executed"));
+    }
+
+    /**
      * Инкремент числового значения
      */
     public Mono<Long> increment(String key) {
