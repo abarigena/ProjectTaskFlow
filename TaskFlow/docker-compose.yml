@@ -64,6 +64,12 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
 
   # Debezium Kafka Connect для CDC
   debezium:
@@ -72,8 +78,10 @@ services:
     ports:
       - "8083:8083"
     depends_on:
-      - kafka
-      - postgres
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_started
     environment:
       BOOTSTRAP_SERVERS: kafka:9092
       GROUP_ID: 1
@@ -84,6 +92,12 @@ services:
       CONFIG_STORAGE_REPLICATION_FACTOR: 1
       OFFSET_STORAGE_REPLICATION_FACTOR: 1
       STATUS_STORAGE_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/connectors"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   # UI для удобства работы с Kafka Connect
   kafka-connect-ui:
@@ -123,7 +137,20 @@ services:
     depends_on:
       - opensearch
 
+  # Redis для кэширования
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --appendfsync everysec
+    # appendonly yes - включаем AOF для персистентности
+    # appendfsync everysec - синхронизация с диском каждую секунду
+
 volumes:
   mongo-data:
   postgres-data:
   opensearch-data:
+  redis-data:

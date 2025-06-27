@@ -1,6 +1,7 @@
 package com.abarigena.taskflow.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,8 +30,11 @@ import java.util.Map;
 public class DebeziumInitializer implements ApplicationRunner {
 
     private final ResourceLoader resourceLoader;
-    private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate = new RestTemplate();
+    
+    // Создаем отдельный ObjectMapper для работы с Debezium API
+    private final ObjectMapper debeziumObjectMapper = new ObjectMapper()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     @Value("${debezium.connect.url}")
     private String debeziumUrl;
@@ -64,9 +68,12 @@ public class DebeziumInitializer implements ApplicationRunner {
         
         for (int i = 0; i < maxRetries; i++) {
             try {
-                restTemplate.getForEntity(debeziumUrl + "/connectors", String.class);
-                log.info("✅ Debezium Connect готов к работе");
-                return;
+                ResponseEntity<String> response = restTemplate.getForEntity(
+                    debeziumUrl + "/connectors", String.class);
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    log.info("✅ Debezium Connect готов к работе");
+                    return;
+                }
             } catch (Exception e) {
                 log.warn("⏳ Ожидание Debezium Connect... попытка {}/{}", i + 1, maxRetries);
                 try {
@@ -82,10 +89,15 @@ public class DebeziumInitializer implements ApplicationRunner {
 
     private boolean isConnectorExists() {
         try {
-            ResponseEntity<List> response = restTemplate.getForEntity(
-                debeziumUrl + "/connectors", List.class);
-            List<String> connectors = response.getBody();
-            return connectors != null && connectors.contains(connectorName);
+            ResponseEntity<String> response = restTemplate.getForEntity(
+                debeziumUrl + "/connectors", String.class);
+            
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                List<String> connectors = debeziumObjectMapper.readValue(
+                    response.getBody(), List.class);
+                return connectors != null && connectors.contains(connectorName);
+            }
+            return false;
         } catch (Exception e) {
             log.error("❌ Ошибка проверки существования коннектора: {}", e.getMessage());
             return false;
@@ -96,7 +108,7 @@ public class DebeziumInitializer implements ApplicationRunner {
         try {
             // Загружаем конфигурацию из ресурсов
             Resource resource = resourceLoader.getResource(configFile);
-            Map<String, Object> config = objectMapper.readValue(
+            Map<String, Object> config = debeziumObjectMapper.readValue(
                 resource.getInputStream(), Map.class);
 
             // Отправляем запрос на создание коннектора
@@ -105,17 +117,19 @@ public class DebeziumInitializer implements ApplicationRunner {
             
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(config, headers);
             
-            ResponseEntity<Map> response = restTemplate.postForEntity(
-                debeziumUrl + "/connectors", request, Map.class);
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                debeziumUrl + "/connectors", request, String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
                 log.info("✅ Debezium коннектор '{}' успешно создан!", connectorName);
+                log.debug("📄 Ответ сервера: {}", response.getBody());
                 
                 // Ждем немного и проверяем статус
                 Thread.sleep(3000);
                 logConnectorStatus();
             } else {
                 log.error("❌ Ошибка создания коннектора. HTTP статус: {}", response.getStatusCode());
+                log.error("📄 Ответ сервера: {}", response.getBody());
             }
             
         } catch (Exception e) {
@@ -125,11 +139,13 @@ public class DebeziumInitializer implements ApplicationRunner {
 
     private void logConnectorStatus() {
         try {
-            ResponseEntity<Map> response = restTemplate.getForEntity(
-                debeziumUrl + "/connectors/" + connectorName + "/status", Map.class);
+            ResponseEntity<String> response = restTemplate.getForEntity(
+                debeziumUrl + "/connectors/" + connectorName + "/status", String.class);
             
-            Map<String, Object> status = response.getBody();
-            if (status != null) {
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> status = debeziumObjectMapper.readValue(
+                    response.getBody(), Map.class);
+                
                 log.info("📊 Статус коннектора '{}': {}", connectorName, 
                     status.get("connector"));
                 
