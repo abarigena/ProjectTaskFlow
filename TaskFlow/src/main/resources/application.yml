@@ -57,17 +57,6 @@ spring:
           min-idle: 0
           max-wait: -1ms
 
-  # Настройки кэширования
-  cache:
-    type: redis
-    redis:
-      # Время жизни кэша по умолчанию (если не указано в аннотации)
-      time-to-live: 1h
-      # Префикс для всех ключей кэша
-      key-prefix: "taskflow:cache:"
-      # Разрешить хранение null значений в кэше
-      cache-null-values: false
-
   rabbitmq:
     host: localhost
     port: 5672
