@@ -79,6 +79,12 @@ debezium:
 server:
   port: 8050
 
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:dGhpc0lzQVNlY3VyZVJhbmRvbUtleUZvckpXVFNpZ25pbmdUaGF0SXNBdExlYXN0MjU2Qml0c0xvbmdGb3JIUzI1NkFsZ29yaXRobQ==}
+  expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000} # 7 days in milliseconds
+
 queue:
   name: task.History
 exchange:

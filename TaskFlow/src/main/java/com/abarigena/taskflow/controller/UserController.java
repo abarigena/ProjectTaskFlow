@@ -9,6 +9,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -28,6 +29,7 @@ public class UserController {
      * @return поток DTO пользователей
      */
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     Flux<UserDto> findAllUsers(
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "10") int size,
@@ -51,6 +53,7 @@ public class UserController {
      * @return моно DTO пользователя
      */
     @GetMapping("/email")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     Mono<UserDto> getUserByEmail(@RequestParam(value = "email") String email) {
         log.info("Request received for getting user by email: {}", email);
 
@@ -63,6 +66,7 @@ public class UserController {
      * @return моно DTO созданного пользователя
      */
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     Mono<UserDto> createUser(@Valid @RequestBody UserDto userDto) {
         log.info("Request received for creating user: {}", userDto);
         return userService.createUser(userDto);
@@ -74,6 +78,7 @@ public class UserController {
      * @return моно DTO пользователя
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'SUPERVISOR', 'USER')")
     Mono<UserDto> findUserById(@PathVariable Long id) {
         log.info("Request received for getting user by id: {}", id);
 
@@ -87,6 +92,7 @@ public class UserController {
      * @return моно DTO обновленного пользователя
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     Mono<UserDto> updateUser(@PathVariable Long id, @Valid @RequestBody UserDto userDto) {
         log.info("Request received for updating user: {}", userDto);
 
@@ -100,6 +106,7 @@ public class UserController {
      */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
     Mono<Void> deleteUserById(@PathVariable Long id) {
         log.info("Request received for deleting user by id: {}", id);
         return userService.deleteUserById(id);

@@ -1,9 +1,16 @@
 package com.abarigena.taskflow.exception;
 
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.security.SignatureException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.support.WebExchangeBindException;
@@ -84,7 +91,7 @@ public class GlobalExceptionHandler {
         return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse));
     }
 
-    @ExceptionHandler({ServerWebInputException.class}) // Можно добавить MissingRequestValueException.class, если хочешь отдельный лог
+    @ExceptionHandler({ServerWebInputException.class})
     public Mono<ResponseEntity<ErrorResponse>> handleServerWebInputException(ServerWebInputException ex) {
         String message = ex.getReason() != null ? ex.getReason() : "Некорректный ввод запроса";
         // Логгируем как WARN, т.к. это ошибка клиента
@@ -98,6 +105,104 @@ public class GlobalExceptionHandler {
                 null
         );
         return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse));
+    }
+
+    @ExceptionHandler(ExpiredJwtException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleExpiredJwtException(ExpiredJwtException ex) {
+        log.warn("JWT token expired: {}", ex.getMessage());
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.UNAUTHORIZED.value(),
+                HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                "JWT token expired. Please login again.",
+                null
+        );
+        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse));
+    }
+
+    @ExceptionHandler(SignatureException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleJwtSignatureException(SignatureException ex) {
+        log.warn("Invalid JWT signature: {}", ex.getMessage());
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.UNAUTHORIZED.value(),
+                HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                "Invalid JWT signature. Please login again.",
+                null
+        );
+        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse));
+    }
+
+    @ExceptionHandler(MalformedJwtException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleMalformedJwtException(MalformedJwtException ex) {
+        log.warn("Malformed JWT token: {}", ex.getMessage());
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.UNAUTHORIZED.value(),
+                HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                "Malformed JWT token. Please login again.",
+                null
+        );
+        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse));
+    }
+
+    @ExceptionHandler(JwtException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleJwtException(JwtException ex) {
+        log.warn("JWT error: {}", ex.getMessage());
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.UNAUTHORIZED.value(),
+                HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                "JWT token error. Please login again.",
+                null
+        );
+        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse));
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleBadCredentialsException(BadCredentialsException ex) {
+        log.warn("Authentication failed: {}", ex.getMessage());
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.UNAUTHORIZED.value(),
+                HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                "Invalid email or password.",
+                null
+        );
+        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse));
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleAuthenticationException(AuthenticationException ex) {
+        log.warn("Authentication error: {}", ex.getMessage());
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.UNAUTHORIZED.value(),
+                HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                "Authentication failed. Please check your credentials.",
+                null
+        );
+        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleAccessDeniedException(AccessDeniedException ex) {
+        log.warn("Access denied: {}", ex.getMessage());
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.FORBIDDEN.value(),
+                HttpStatus.FORBIDDEN.getReasonPhrase(),
+                "Access denied. You don't have permission to access this resource.",
+                null
+        );
+        return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse));
     }
 
     @ExceptionHandler(Exception.class)

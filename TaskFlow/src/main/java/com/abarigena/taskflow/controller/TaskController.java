@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -30,6 +31,7 @@ public class TaskController {
      * @return поток DTO задач
      */
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'SUPERVISOR', 'USER')")
     public Flux<TaskDto> getAllTasks(
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "10") int size,
@@ -53,6 +55,7 @@ public class TaskController {
      * @return моно с ResponseEntity, содержащим DTO задачи
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'SUPERVISOR', 'USER')")
     public Mono<ResponseEntity<TaskDto>> getTaskById(@PathVariable Long id) {
         log.info("Request received for getting task with id: {}", id);
         return taskService.getTaskById(id)
@@ -66,6 +69,7 @@ public class TaskController {
      */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public Mono<ResponseEntity<TaskDto>> createTask(@Valid @RequestBody TaskDto taskDto) {
         log.info("Request received for creating task: {}", taskDto.getTitle());
         return taskService.createTask(taskDto)
@@ -79,6 +83,7 @@ public class TaskController {
      * @return моно с ResponseEntity, содержащим DTO обновленной задачи
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public Mono<ResponseEntity<TaskDto>> updateTask(@PathVariable Long id, @Valid @RequestBody TaskDto taskDto) {
         log.info("Request received for updating task with id: {}", id);
 
@@ -93,6 +98,7 @@ public class TaskController {
      */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public Mono<Void> deleteTask(@PathVariable Long id) {
         log.info("Request received for deleting task with id: {}", id);
         return taskService.deleteTask(id);
@@ -107,6 +113,7 @@ public class TaskController {
      * @return поток DTO задач
      */
     @GetMapping("/assigned/{userId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'SUPERVISOR', 'USER')")
     public Flux<TaskDto> findByAssignedUserId(@PathVariable Long userId,
                                               @RequestParam(value = "page", defaultValue = "0") int page,
                                               @RequestParam(value = "size", defaultValue = "10") int size,
@@ -132,6 +139,7 @@ public class TaskController {
      * @return поток DTO задач
      */
     @GetMapping("/project/{projectId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'SUPERVISOR', 'USER')")
     public Flux<TaskDto> getTasksByProjectId(@PathVariable Long projectId,
                                              @RequestParam(value = "page", defaultValue = "0") int page,
                                              @RequestParam(value = "size", defaultValue = "10") int size,
@@ -158,6 +166,7 @@ public class TaskController {
      * @return поток DTO задач
      */
     @GetMapping("/find/filter")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'SUPERVISOR', 'USER')")
     public Flux<TaskDto> getTasksByStatusAndPriority(@RequestParam Task.Status status,
                                                      @RequestParam Task.Priority priority,
                                                      @RequestParam(value = "page", defaultValue = "0") int page,

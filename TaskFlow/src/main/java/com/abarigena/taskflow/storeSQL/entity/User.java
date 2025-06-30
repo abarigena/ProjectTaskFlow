@@ -28,6 +28,11 @@ public class User {
 
     private String email;
 
+    private String password;
+
+    @Column("role")
+    private Role role;
+
     private Boolean active;
 
     @Column("created_at")

@@ -14,6 +14,7 @@ import com.abarigena.taskflow.storeSQL.entity.Task;
 import com.abarigena.taskflow.storeSQL.repository.ProjectRepository;
 import com.abarigena.taskflow.storeSQL.repository.TaskRepository;
 import com.abarigena.taskflow.storeSQL.repository.UserRepository;
+import com.abarigena.taskflow.utility.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,6 +42,7 @@ public class TaskServiceImpl implements TaskService {
     private final TaskHistoryMapper taskHistoryMapper;
     private final ReactiveRedisService reactiveRedisService;
     private final RedisEventPublisher redisEventPublisher;
+    private final SecurityUtils securityUtils;
 
     private static final String TASK_ID_CACHE_KEY_PREFIX = "task:id:";
     private static final Duration TASK_CACHE_TTL = Duration.ofMinutes(30);
@@ -56,7 +58,11 @@ public class TaskServiceImpl implements TaskService {
      */
     @Override
     public Flux<TaskDto> getAllTasks(Pageable pageable) {
+        log.info("Запрашиваем задачи с пагинацией: {}", pageable);
         return taskRepository.findAllBy(pageable)
+                .doOnNext(task -> log.info("Найдена задача: id={}, title={}", task.getId(), task.getTitle()))
+                .doOnComplete(() -> log.info("Завершен поиск задач"))
+                .doOnError(error -> log.error("Ошибка при поиске задач: {}", error.getMessage(), error))
                 .map(taskMapper::toDto);
     }
 
@@ -142,19 +148,23 @@ public class TaskServiceImpl implements TaskService {
                 })
 
                 .flatMap(savedTask -> {
-                    TaskHistory history = TaskHistory.builder()
-                            .taskId(savedTask.getId())
-                            .action(TaskHistory.Action.CREATE)
-                            .performedBy(0L) // TODO получать пользователя из контекста
-                            .timestamp(savedTask.getCreatedAt())
-                            .status(savedTask.getStatus().name())
-                            .details(Map.of("title", savedTask.getTitle()))
-                            .build();
+                    return securityUtils.getCurrentUserId()
+                            .defaultIfEmpty(0L) // fallback if user not found
+                            .flatMap(currentUserId -> {
+                                TaskHistory history = TaskHistory.builder()
+                                        .taskId(savedTask.getId())
+                                        .action(TaskHistory.Action.CREATE)
+                                        .performedBy(currentUserId)
+                                        .timestamp(savedTask.getCreatedAt())
+                                        .status(savedTask.getStatus().name())
+                                        .details(Map.of("title", savedTask.getTitle()))
+                                        .build();
 
-                    rabbitProducer.sendCreateNotification(taskHistoryMapper.toDto(history));
+                                rabbitProducer.sendCreateNotification(taskHistoryMapper.toDto(history));
 
-                    return taskHistoryService.saveHistory(history)
-                            .thenReturn(savedTask);
+                                return taskHistoryService.saveHistory(history)
+                                        .thenReturn(savedTask);
+                            });
                 })
 
                 .map(taskMapper::toDto);
@@ -211,19 +221,23 @@ public class TaskServiceImpl implements TaskService {
                             .thenReturn(updatedTask);
                 })
                 .flatMap(updatedTask -> {
-                    TaskHistory history = TaskHistory.builder()
-                            .taskId(updatedTask.getId())
-                            .action(TaskHistory.Action.UPDATE)
-                            .performedBy(0L) // TODO получение пользователя
-                            .timestamp(updatedTask.getUpdatedAt())
-                            .status(updatedTask.getStatus().name())
-                            .details(Map.of("message", "Task fields updated"))
-                            .build();
+                    return securityUtils.getCurrentUserId()
+                            .defaultIfEmpty(0L) // fallback if user not found
+                            .flatMap(currentUserId -> {
+                                TaskHistory history = TaskHistory.builder()
+                                        .taskId(updatedTask.getId())
+                                        .action(TaskHistory.Action.UPDATE)
+                                        .performedBy(currentUserId)
+                                        .timestamp(updatedTask.getUpdatedAt())
+                                        .status(updatedTask.getStatus().name())
+                                        .details(Map.of("message", "Task fields updated"))
+                                        .build();
 
-                    rabbitProducer.sendUpdateNotification(taskHistoryMapper.toDto(history));
+                                rabbitProducer.sendUpdateNotification(taskHistoryMapper.toDto(history));
 
-                    return taskHistoryService.saveHistory(history)
-                            .thenReturn(updatedTask);
+                                return taskHistoryService.saveHistory(history)
+                                        .thenReturn(updatedTask);
+                            });
                 })
                 .map(taskMapper::toDto);
     }
@@ -240,19 +254,23 @@ public class TaskServiceImpl implements TaskService {
         return taskRepository.findById(id)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("Task", "id", id)))
                 .flatMap(existingTask -> {
-                    TaskHistoryDto historyDto = new TaskHistoryDto();
-                    historyDto.setTaskId(existingTask.getId());
-                    historyDto.setAction(TaskHistory.Action.DELETE);
-                    historyDto.setTimestamp(LocalDateTime.now());
-                    historyDto.setPerformedBy(0L); // TODO: Implement user context
-                    historyDto.setDetails(Map.of("title", existingTask.getTitle()));
+                    return securityUtils.getCurrentUserId()
+                            .defaultIfEmpty(0L) // fallback if user not found
+                            .flatMap(currentUserId -> {
+                                TaskHistoryDto historyDto = new TaskHistoryDto();
+                                historyDto.setTaskId(existingTask.getId());
+                                historyDto.setAction(TaskHistory.Action.DELETE);
+                                historyDto.setTimestamp(LocalDateTime.now());
+                                historyDto.setPerformedBy(currentUserId);
+                                historyDto.setDetails(Map.of("title", existingTask.getTitle()));
 
-                    rabbitProducer.sendDeleteNotification(historyDto, deleteTopicRoutingKey);
+                                rabbitProducer.sendDeleteNotification(historyDto, deleteTopicRoutingKey);
 
-                    return taskRepository.deleteById(id)
-                            .then(
-                                    redisEventPublisher.publishTaskDeleted(id)
-                            );
+                                return taskRepository.deleteById(id)
+                                        .then(
+                                                redisEventPublisher.publishTaskDeleted(id)
+                                        );
+                            });
                 });
     }
 

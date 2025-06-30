@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -23,6 +24,7 @@ public class ProjectController {
     private final ProjectService projectService;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'SUPERVISOR', 'USER')")
     public Flux<ProjectDto> getAllProjects(
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "10") int size,
@@ -41,6 +43,7 @@ public class ProjectController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'SUPERVISOR', 'USER')")
     public Mono<ResponseEntity<ProjectDto>> getProjectById(@PathVariable Long id) {
         log.info("Request received for getting project with id: {}", id);
         return projectService.getProjectById(id)
@@ -49,12 +52,14 @@ public class ProjectController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public Mono<ProjectDto> createProject(@Valid @RequestBody ProjectDto projectDto) {
         log.info("Request received for creating project: {}", projectDto.getName());
         return projectService.createProject(projectDto);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public Mono<ResponseEntity<ProjectDto>> updateProject(@PathVariable Long id, @Valid @RequestBody ProjectDto projectDto) {
         log.info("Request received for updating project with id: {}", id);
         return projectService.updateProject(id, projectDto)
@@ -63,6 +68,7 @@ public class ProjectController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public Mono<Void> deleteProject(@PathVariable Long id) {
         log.info("Request received for deleting project with id: {}", id);
         return projectService.deleteProject(id);
@@ -70,6 +76,7 @@ public class ProjectController {
 
     @PostMapping("/{projectId}/users/{userId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public Mono<Void> addUserToProject(@PathVariable Long projectId, @PathVariable Long userId) {
         log.info("Request received to add user {} to project {}", userId, projectId);
         return projectService.addUserToProject(projectId, userId);
@@ -77,12 +84,14 @@ public class ProjectController {
 
     @DeleteMapping("/{projectId}/users/{userId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public Mono<Void> removeUserFromProject(@PathVariable Long projectId, @PathVariable Long userId) {
         log.info("Request received to remove user {} from project {}", userId, projectId);
         return projectService.deleteUserFromProject(projectId, userId);
     }
 
     @GetMapping("/{projectId}/users")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'SUPERVISOR', 'USER')")
     public Flux<UserDto> getUsersInProject(
             @PathVariable Long projectId
     ) {

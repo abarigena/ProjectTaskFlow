@@ -1,7 +1,9 @@
 package com.abarigena.taskflow.controller;
 
+import com.abarigena.taskflow.exception.ResourceNotFoundException;
 import com.abarigena.taskflow.serviceNoSQL.DocumentFileService;
 import com.abarigena.taskflow.storeNoSQL.entity.DocumentFile;
+import com.abarigena.taskflow.storeSQL.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
@@ -28,6 +30,7 @@ import java.util.List;
 @Slf4j
 public class DocumentFileController {
     private final DocumentFileService documentFileService;
+    private final TaskRepository taskRepository;
 
     private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
     private static final List<MediaType> ALLOWED_MEDIA_TYPES = List.of(
@@ -82,8 +85,13 @@ public class DocumentFileController {
     @GetMapping("/tasks/{taskId}/documents")
     public Flux<DocumentFile> getDocumentsForTask(@PathVariable Long taskId) {
         log.info("Запрос списка документов для задачи ID: {}", taskId);
-        // TODO: Добавить проверку существования задачи taskId
-        return documentFileService.getDocumentsByTaskId(taskId);
+        return taskRepository.existsById(taskId)
+                .flatMapMany(exists -> {
+                    if (!exists) {
+                        return Flux.error(new ResourceNotFoundException("Task", "id", taskId));
+                    }
+                    return documentFileService.getDocumentsByTaskId(taskId);
+                });
     }
 
     /**
