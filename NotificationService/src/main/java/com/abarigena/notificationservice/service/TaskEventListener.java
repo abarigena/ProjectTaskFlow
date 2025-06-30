@@ -1,6 +1,7 @@
 package com.abarigena.notificationservice.service;
 
 import com.abarigena.notificationservice.dto.TaskHistoryDto;
+import com.abarigena.notificationservice.mapper.TaskHistoryMapper;
 import com.abarigena.notificationservice.store.entity.NotificationTaskHistory;
 import com.abarigena.notificationservice.store.repository.NotificationTaskHistoryRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -24,6 +25,7 @@ import java.util.Map;
 public class TaskEventListener {
     private final NotificationTaskHistoryRepository repository;
     private final ObjectMapper objectMapper;
+    private final TaskHistoryMapper taskHistoryMapper;
 
     @RabbitListener(
             queues = "${taskflow.queue.notifications}",
@@ -98,7 +100,7 @@ public class TaskEventListener {
             return;
         }
 
-        NotificationTaskHistory entityToSave = mapDtoToEntity(message);
+        NotificationTaskHistory entityToSave = taskHistoryMapper.toEntity(message);
         log.debug("DTO {} смаплено на сущность: {}", message, entityToSave);
 
         log.debug("Попытка сохранения сущности для deliveryTag [{}]...", deliveryTag);
@@ -178,29 +180,5 @@ public class TaskEventListener {
         }
     }
 
-    // TODO заменить на маппер
-    private NotificationTaskHistory mapDtoToEntity(TaskHistoryDto dto) {
-        String actionString = (dto.getAction() != null) ? dto.getAction().name() : null;
-        String detailsJson = convertMapToJsonString(dto.getDetails());
 
-        return NotificationTaskHistory.builder()
-                .taskId(dto.getTaskId())
-                .action(actionString)
-                .performedBy(dto.getPerformedBy())
-                .status(dto.getStatus())
-                .timestamp(dto.getTimestamp())
-                .details(detailsJson)
-                .build();
-    }
-
-    private String convertMapToJsonString(Map<String, Object> map) {
-        if (map == null || map.isEmpty()) {
-            return null;
-        }
-        try {
-            return objectMapper.writeValueAsString(map);
-        }catch (JsonProcessingException e){
-            throw new RuntimeException("Ошибка сериализации деталей задачи в JSON", e);
-        }
-    }
 }
