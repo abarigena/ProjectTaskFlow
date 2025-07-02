@@ -1,0 +1,125 @@
+### Task 15 JOOQ User API Tests
+
+### 1. Создать пользователя - BORROWER
+POST http://localhost:8050/api/task15/users
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+{
+  "username": "john_borrower",
+  "email": "john@example.com",
+  "fullName": "John Doe",
+  "role": "BORROWER"
+}
+
+### 2. Создать пользователя - COLLECTOR
+POST http://localhost:8050/api/task15/users
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+{
+  "username": "alice_collector",
+  "email": "alice@example.com",
+  "fullName": "Alice Smith",
+  "role": "COLLECTOR"
+}
+
+### 3. Создать пользователя - VERIFIER
+POST http://localhost:8050/api/task15/users
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+{
+  "username": "bob_verifier",
+  "email": "bob@example.com",
+  "fullName": "Bob Johnson",
+  "role": "VERIFIER"
+}
+
+### 4. Получить всех пользователей
+GET http://localhost:8050/api/task15/users
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+### 5. Получить пользователей по роли BORROWER
+GET http://localhost:8050/api/task15/users?role=BORROWER
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+### 6. Получить пользователей по роли COLLECTOR
+GET http://localhost:8050/api/task15/users?role=COLLECTOR
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+### 7. Получить пользователей по роли VERIFIER
+GET http://localhost:8050/api/task15/users?role=VERIFIER
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+### 8. Получить пользователя по ID (замените 1 на реальный ID)
+GET http://localhost:8050/api/task15/users/1
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+### 9. Найти пользователя по username
+GET http://localhost:8050/api/task15/users/search/username/john_borrower
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+### 10. Проверить существует ли username
+HEAD http://localhost:8050/api/task15/users/check/username/john_borrower
+
+### 11. Проверить существует ли email
+HEAD http://localhost:8050/api/task15/users/check/email/john@example.com
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+### 12. Обновить пользователя (замените 1 на реальный ID)
+PUT http://localhost:8050/api/task15/users/1
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+{
+  "username": "john_borrower_updated",
+  "email": "john.updated@example.com",
+  "fullName": "John Doe Updated",
+  "role": "COLLECTOR",
+  "accountStatus": "VERIFIED"
+}
+
+### 13. Попытка создать пользователя с существующим username (должна вернуть ошибку)
+POST http://localhost:8050/api/task15/users
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+{
+  "username": "john_borrower",
+  "email": "different@example.com",
+  "fullName": "Different User",
+  "role": "VERIFIER"
+}
+
+### 14. Попытка создать пользователя с существующим email (должна вернуть ошибку)
+POST http://localhost:8050/api/task15/users
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+{
+  "username": "different_username",
+  "email": "john@example.com",
+  "fullName": "Another User",
+  "role": "BORROWER"
+}
+
+### 15. Создать пользователя с невалидными данными (должна вернуть ошибку валидации)
+POST http://localhost:8050/api/task15/users
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+{
+  "username": "ab",
+  "email": "invalid-email",
+  "fullName": "",
+  "role": "INVALID_ROLE"
+}
+
+### 16. Удалить пользователя (замените 1 на реальный ID)
+DELETE http://localhost:8050/api/task15/users/1
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs
+
+### 17. Попытка получить удаленного пользователя (должна вернуть 404)
+GET http://localhost:8050/api/task15/users/1
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjI3LCJzdWIiOiJqb2huLmRvZUBleGFtcGxlLmNvbSIsImlhdCI6MTc1MTQzODc3OCwiZXhwIjoxNzUxNTI1MTc4fQ.Snh33AKLRK1oIK56lb6eQsNMWUpgE6-aaMxxd8DJHWs

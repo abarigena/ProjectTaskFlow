@@ -3,6 +3,7 @@ plugins {
     id 'org.springframework.boot' version '3.4.4'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'jacoco'
+    id 'nu.studer.jooq' version '8.2.1'
 }
 
 group = 'com.abarigena'
@@ -78,6 +79,16 @@ dependencies {
     // OpenSearch для поиска и аналитики
     implementation 'org.opensearch.client:opensearch-rest-client:2.10.0'
     implementation 'org.opensearch.client:opensearch-java:2.10.0'
+    
+    // JOOQ зависимости для Task 15
+    implementation 'org.springframework.boot:spring-boot-starter-jooq'
+    implementation 'org.jooq:jooq'
+    implementation 'org.jooq:jooq-meta'
+    implementation 'org.jooq:jooq-codegen'
+    implementation 'com.zaxxer:HikariCP'
+    
+    // PostgreSQL драйвер для JOOQ кодогенерации
+    jooqGenerator 'org.postgresql:postgresql'
 }
 
 repositories {
@@ -115,4 +126,62 @@ jacocoTestReport {
 tasks.named('test') {
     useJUnitPlatform()
     finalizedBy jacocoTestReport
+}
+
+// JOOQ кодогенерация для Task 15
+jooq {
+    version = dependencyManagement.importedProperties['jooq.version']
+    
+    configurations {
+        main {
+            generateSchemaSourceOnCompilation = false
+            
+            generationTool {
+                logging = org.jooq.meta.jaxb.Logging.WARN
+                
+                jdbc {
+                    driver = 'org.postgresql.Driver'
+                    url = 'jdbc:postgresql://localhost:5433/taskflow_db'
+                    user = 'postgres'
+                    password = 'postgres'
+                }
+                
+                generator {
+                    name = 'org.jooq.codegen.JavaGenerator'
+                    
+                    database {
+                        name = 'org.jooq.meta.postgres.PostgresDatabase'
+                        includes = 'task15_user'
+                        excludes = ''
+                        
+                        forcedTypes {
+                            forcedType {
+                                userType = 'com.abarigena.taskflow.task15.types.UserRole'
+                                includeExpression = '.*\\.ROLE'
+                                converter = 'com.abarigena.taskflow.task15.converter.UserRoleConverter'
+                            }
+                            forcedType {
+                                userType = 'com.abarigena.taskflow.task15.types.UserAccountStatus'
+                                includeExpression = '.*\\.ACCOUNT_STATUS'
+                                converter = 'com.abarigena.taskflow.task15.converter.UserAccountStatusConverter'
+                            }
+                        }
+                    }
+                    
+                    target {
+                        packageName = 'com.abarigena.taskflow.task15.jooq'
+                        directory = 'build/generated-src/jooq/main'
+                    }
+                    
+                    generate {
+                        pojos = true
+                        daos = true
+                        records = true
+                        interfaces = true
+                        fluentSetters = true
+                    }
+                }
+            }
+        }
+    }
 }
