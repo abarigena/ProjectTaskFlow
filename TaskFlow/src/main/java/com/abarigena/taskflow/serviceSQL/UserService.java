@@ -28,6 +28,17 @@ public interface UserService {
     Mono<UserDto> createUser(UserDto userDto);
 
     /**
+     * Создает нового пользователя с паролем (для GraphQL API).
+     * @param firstName имя пользователя
+     * @param lastName фамилия пользователя
+     * @param email email пользователя
+     * @param encodedPassword зашифрованный пароль
+     * @param active активен ли пользователь
+     * @return моно DTO созданного пользователя
+     */
+    Mono<UserDto> createUserWithPassword(String firstName, String lastName, String email, String encodedPassword, Boolean active);
+
+    /**
      * Находит пользователя по его идентификатору.
      * @param id идентификатор пользователя
      * @return моно DTO пользователя

@@ -15,7 +15,7 @@ import reactor.core.scheduler.Scheduler;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static com.abarigena.taskflow.task15.jooq.public_.Tables.TASK15_USER;
+import static com.abarigena.taskflow.task15.jooq.Tables.TASK15_USER;
 
 @Slf4j
 @Service

@@ -34,6 +34,7 @@ public class SecurityConfig {
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers("/auth/**").permitAll()
                         .pathMatchers("/actuator/**").permitAll()
+                        .pathMatchers("/graphql", "/graphiql/**").permitAll()  // Разрешаем доступ к GraphQL
                         .anyExchange().authenticated()
                 )
                 .addFilterAt(authenticationWebFilter(), SecurityWebFiltersOrder.AUTHENTICATION)
@@ -44,10 +45,10 @@ public class SecurityConfig {
     public AuthenticationWebFilter authenticationWebFilter() {
         AuthenticationWebFilter authenticationWebFilter = new AuthenticationWebFilter(jwtAuthenticationManager);
         authenticationWebFilter.setServerAuthenticationConverter(jwtAuthenticationConverter);
-        // Исключаем auth пути из JWT обработки
+        // Исключаем auth и GraphQL пути из JWT обработки
         authenticationWebFilter.setRequiresAuthenticationMatcher(
                 new NegatedServerWebExchangeMatcher(
-                        ServerWebExchangeMatchers.pathMatchers("/auth/**")
+                        ServerWebExchangeMatchers.pathMatchers("/auth/**", "/graphql", "/graphiql/**")
                 )
         );
         return authenticationWebFilter;

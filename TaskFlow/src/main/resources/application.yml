@@ -1,5 +1,11 @@
 spring:
 
+  graphql:
+    graphiql:
+      enabled: true
+      path: /graphiql
+    path: /graphql
+
   kafka:
     bootstrap-servers: localhost:29092
     producer:

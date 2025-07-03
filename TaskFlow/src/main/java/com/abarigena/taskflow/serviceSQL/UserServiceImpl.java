@@ -72,7 +72,7 @@ public class UserServiceImpl implements UserService {
      * @return Mono, содержащий DTO созданного пользователя, или ошибку DataIntegrityViolationException, если email уже существует.
      */
     @Override
-    @Transactional
+    @Transactional(transactionManager = "connectionFactoryTransactionManager")
     public Mono<UserDto> createUser(UserDto userDto) {
 
         User user = userMapper.toEntity(userDto);
@@ -90,6 +90,34 @@ public class UserServiceImpl implements UserService {
         return userRepository.findByEmail(user.getEmail())
                 .flatMap(existingUser -> Mono.<User>error(new DataIntegrityViolationException("Email" +
                         " already exists: " + user.getEmail())))
+                .switchIfEmpty(userRepository.save(user))
+                .cast(User.class)
+                .map(userMapper::toDto);
+    }
+
+    /**
+     * Создает нового пользователя с паролем (для GraphQL API).
+     */
+    @Override
+    @Transactional(transactionManager = "connectionFactoryTransactionManager")
+    public Mono<UserDto> createUserWithPassword(String firstName, String lastName, String email, String encodedPassword, Boolean active) {
+        
+        if (email == null || email.isBlank()) {
+            return Mono.error(new IllegalArgumentException("Email cannot be blank"));
+        }
+
+        User user = User.builder()
+                .firstName(firstName)
+                .lastName(lastName)
+                .email(email)
+                .password(encodedPassword)  // Используем уже зашифрованный пароль
+                .active(active != null ? active : true)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        return userRepository.findByEmail(user.getEmail())
+                .flatMap(existingUser -> Mono.<User>error(new DataIntegrityViolationException("Email already exists: " + user.getEmail())))
                 .switchIfEmpty(userRepository.save(user))
                 .cast(User.class)
                 .map(userMapper::toDto);
@@ -123,7 +151,7 @@ public class UserServiceImpl implements UserService {
      * или DataIntegrityViolationException, если новый email уже занят.
      */
     @Override
-    @Transactional
+    @Transactional(transactionManager = "connectionFactoryTransactionManager")
     public Mono<UserDto> updateUser(Long id, UserDto userDto) {
         return userRepository.findById(id)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User", "id", id)))
@@ -154,7 +182,7 @@ public class UserServiceImpl implements UserService {
      * @return Пустой Mono, сигнализирующий о завершении операции, или ошибку ResourceNotFoundException, если пользователь не найден.
      */
     @Override
-    @Transactional
+    @Transactional(transactionManager = "connectionFactoryTransactionManager")
     public Mono<Void> deleteUserById(Long id) {
         return userRepository.findById(id)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("User", "id", id)))

@@ -80,6 +80,9 @@ dependencies {
     implementation 'org.opensearch.client:opensearch-rest-client:2.10.0'
     implementation 'org.opensearch.client:opensearch-java:2.10.0'
     
+    // GraphQL зависимости
+    implementation 'org.springframework.boot:spring-boot-starter-graphql'
+    
     // JOOQ зависимости для Task 15
     implementation 'org.springframework.boot:spring-boot-starter-jooq'
     implementation 'org.jooq:jooq'
@@ -151,6 +154,7 @@ jooq {
                     
                     database {
                         name = 'org.jooq.meta.postgres.PostgresDatabase'
+                        inputSchema = 'public'
                         includes = 'task15_user'
                         excludes = ''
                         

@@ -1,0 +1,56 @@
+# GraphQL схема для управления пользователями
+
+# Кастомный скаляр для LocalDateTime
+scalar LocalDateTime
+
+# Основной тип пользователя (для возврата данных)
+type User {
+    id: ID!
+    firstName: String!
+    lastName: String!
+    email: String!
+    active: Boolean!
+    createdAt: LocalDateTime!
+    updatedAt: LocalDateTime!
+}
+
+# Input тип для создания пользователя
+input CreateUserInput {
+    firstName: String!
+    lastName: String!
+    email: String!
+    password: String!
+    active: Boolean = true
+}
+
+# Input тип для обновления пользователя
+input UpdateUserInput {
+    firstName: String
+    lastName: String
+    email: String
+    active: Boolean
+}
+
+# Корневой тип для всех запросов на чтение данных
+type Query {
+    # Получить пользователя по ID
+    user(id: ID!): User
+    
+    # Получить всех пользователей с пагинацией
+    users(limit: Int = 10, offset: Int = 0): [User!]!
+    
+    # Найти пользователя по email
+    userByEmail(email: String!): User
+}
+
+# Корневой тип для всех операций изменения данных
+type Mutation {
+    # Создать нового пользователя
+    createUser(input: CreateUserInput!): User!
+    
+    # Обновить существующего пользователя
+    updateUser(id: ID!, input: UpdateUserInput!): User!
+    
+    # Удалить пользователя
+    deleteUser(id: ID!): Boolean!
+} 
